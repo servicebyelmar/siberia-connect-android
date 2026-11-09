@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.net.TrafficStats
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -54,6 +55,7 @@ class ScActivity : ComponentActivity() {
     }
 
     private lateinit var web: WebView
+    private val prefs by lazy { getSharedPreferences("sc_app", MODE_PRIVATE) }
 
     @Volatile
     private var running = false
@@ -73,10 +75,12 @@ class ScActivity : ComponentActivity() {
             when (i.getIntExtra("key", 0)) {
                 AppConfig.MSG_STATE_RUNNING, AppConfig.MSG_STATE_START_SUCCESS -> {
                     running = true
+                    if (prefs.getLong("since", 0L) == 0L) prefs.edit().putLong("since", System.currentTimeMillis()).apply()
                     emit(JSONObject().put("type", "state").put("state", "on"))
                 }
                 AppConfig.MSG_STATE_NOT_RUNNING, AppConfig.MSG_STATE_STOP_SUCCESS -> {
                     running = false
+                    prefs.edit().remove("since").apply()
                     emit(JSONObject().put("type", "state").put("state", "off"))
                 }
                 AppConfig.MSG_STATE_START_FAILURE -> {
@@ -124,6 +128,11 @@ class ScActivity : ComponentActivity() {
         })
         if (savedInstanceState == null) web.loadUrl(HOME) else web.restoreState(savedInstanceState)
         lifecycleScope.launch(Dispatchers.IO) { ensureGeoFiles() }
+        // apk_v4: скорость в уведомлении включена по умолчанию (один раз)
+        if (!prefs.getBoolean("defaults_v4", false)) {
+            MmkvManager.encodeSettings(AppConfig.PREF_SPEED_ENABLED, true)
+            prefs.edit().putBoolean("defaults_v4", true).apply()
+        }
 
         ContextCompat.registerReceiver(
             this, stateReceiver, IntentFilter(AppConfig.BROADCAST_ACTION_ACTIVITY), Utils.receiverFlags()
@@ -220,6 +229,7 @@ class ScActivity : ComponentActivity() {
 
     private fun startCore() {
         emit(JSONObject().put("type", "state").put("state", "connecting"))
+        prefs.edit().remove("since").apply()
         lifecycleScope.launch(Dispatchers.IO) {
             ensureGeoFiles()
             runOnUiThread { LauncherManager.startService(this@ScActivity) }
@@ -301,6 +311,32 @@ class ScActivity : ComponentActivity() {
         @JavascriptInterface
         fun openExternal(url: String) {
             runOnUiThread { this@ScActivity.openExternal(url) }
+        }
+
+        /** apk_v4: трафик приложения (весь VPN идёт через него) и время подключения */
+        @JavascriptInterface
+        fun stats(): String {
+            val uid = android.os.Process.myUid()
+            val rx = TrafficStats.getUidRxBytes(uid).coerceAtLeast(0L)
+            val tx = TrafficStats.getUidTxBytes(uid).coerceAtLeast(0L)
+            return JSONObject().put("rx", rx).put("tx", tx).put("since", prefs.getLong("since", 0L))
+                .put("now", System.currentTimeMillis()).toString()
+        }
+
+        @JavascriptInterface
+        fun autoStart(): Boolean = MmkvManager.decodeStartOnBoot()
+
+        @JavascriptInterface
+        fun setAutoStart(on: Boolean) {
+            MmkvManager.encodeStartOnBoot(on)
+        }
+
+        @JavascriptInterface
+        fun vpnSettings() {
+            runOnUiThread {
+                runCatching { startActivity(Intent(Settings.ACTION_VPN_SETTINGS)) }
+                    .onFailure { emit(JSONObject().put("type", "toast").put("text", "Открой Настройки → VPN вручную")) }
+            }
         }
 
         @JavascriptInterface

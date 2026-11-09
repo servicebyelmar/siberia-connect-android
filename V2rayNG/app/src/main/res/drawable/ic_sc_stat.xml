@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Siberia Connect: снежинка для статус-бара и плитки -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M12.00,2.50L12.00,21.50M20.23,7.25L3.77,16.75M20.23,16.75L3.77,7.25M12.00,18.00L13.80,15.86M12.00,18.00L10.20,15.86M6.80,15.00L9.56,15.49M6.80,15.00L7.76,12.37M6.80,9.00L7.76,11.63M6.80,9.00L9.56,8.51M12.00,6.00L10.20,8.14M12.00,6.00L13.80,8.14M17.20,9.00L14.44,8.51M17.20,9.00L16.24,11.63M17.20,15.00L16.24,12.37M17.20,15.00L14.44,15.49"
+        android:strokeWidth="2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+</vector>

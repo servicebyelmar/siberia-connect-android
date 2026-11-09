@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name" translatable="false">Siberia Connect</string>
     <string name="app_widget_name">Switch</string>
-    <string name="app_tile_name">Switch</string>
+    <string name="app_tile_name">Siberia Connect</string>
     <string name="app_tile_first_use">Add a profile in the app before using this feature.</string>
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
