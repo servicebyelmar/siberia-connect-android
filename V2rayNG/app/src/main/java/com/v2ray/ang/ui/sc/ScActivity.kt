@@ -201,7 +201,7 @@ class ScActivity : ComponentActivity() {
         val sel = MmkvManager.getSelectServer()
         if (list.isNotEmpty() && (sel == null || !list.contains(sel))) MmkvManager.setSelectServer(list.first())
         return out.put("ok", list.isNotEmpty()).put("count", list.size).put("updated", res.successCount)
-            .put("error", if (list.isEmpty()) "Не удалось получить серверы. Проверь интернет" else "")
+            .put("error", if (list.isEmpty()) "Сервер не выдал список. Проверь интернет или лимит устройств" else "")
     }
 
     private fun requestStart() {
