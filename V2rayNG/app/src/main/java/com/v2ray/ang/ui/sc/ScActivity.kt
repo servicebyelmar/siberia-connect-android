@@ -7,12 +7,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.net.Uri
 import android.net.TrafficStats
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -39,6 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 
 /**
@@ -52,6 +56,32 @@ class ScActivity : ComponentActivity() {
         const val HOST = "sibirapp.duckdns.org"
         const val HOME = "https://$HOST/app/?native=1"
         const val SUB_NAME = "Siberia Connect"
+
+        /** apk_v5: российские приложения, которые по умолчанию идут мимо VPN */
+        val RU_DIRECT = setOf(
+            // банки и платежи
+            "ru.sberbankmobile", "com.idamob.tinkoff.android", "ru.vtb24.mobilebanking.android", "ru.alfabank.mobile.android",
+            "ru.raiffeisen.rmobile", "ru.gazprombank.android.mobilebank.app", "com.openbank", "ru.rosbank.android",
+            "ru.psbank.online", "ru.mts.money", "ru.pochtabank.pochtaapp", "ru.sovcombank.halvacard", "com.yandex.bank",
+            "ru.ozon.fintech.finance", "ru.nspk.mirpay", "ru.nspk.sbpay", "ru.sberbank.sberbankid", "ru.uralsib.mb",
+            "ru.akbars.mobile", "ru.bspb", "ru.mkb.mobile", "ru.rshb.dbo", "ru.unicredit.android", "ru.homecredit.mycredit",
+            "ru.otpbank.mobile", "ru.rencredit.android", "ru.letobank.Prometheus", "com.qiwi.wallet", "ru.yoo.money",
+            // госсервисы
+            "ru.rostel", "ru.gosuslugi.goskey", "ru.fns.lkfl", "com.gnivts.selfemployed", "ru.mos.app", "ru.pfr.mobile",
+            // маркетплейсы и магазины
+            "com.wildberries.ru", "ru.ozon.app.android", "ru.beru.android", "ru.sbermegamarket.app", "com.avito.android",
+            "ru.vkusvill", "ru.perekrestok.app", "ru.myspar", "ru.magnit.express.android", "ru.lenta.lentochka", "ru.dns.shop.android",
+            "ru.mvideo.mobile", "ru.eldorado.app", "ru.lamoda.android", "ru.goldapple", "ru.detmir.dmbonus", "ru.samokat.mobile",
+            // такси, карты, доставка, транспорт
+            "ru.yandex.taxi", "ru.yandex.yandexmaps", "ru.yandex.yandexnavi", "ru.foodfox.client", "ru.yandex.lavka",
+            "com.deliveryclub", "ru.dodopizza.app", "ru.dublgis.dgismobile", "ru.rzd.pass", "ru.tutu.tutu_emp", "com.citymobil",
+            "ru.yandex.metro", "ru.yandex.yandexbus", "ru.aviasales",
+            // Яндекс, VK, связь, остальное
+            "ru.yandex.searchplugin", "com.yandex.browser", "ru.yandex.mail", "ru.yandex.disk", "ru.yandex.music",
+            "ru.kinopoisk", "com.vkontakte.android", "ru.ok.android", "ru.mail.mailapp", "ru.rutube.app", "ru.vk.store",
+            "com.vk.vkvideo", "ru.oneme.app", "ru.mts.mymts", "ru.beeline.services", "ru.megafon.mlk", "ru.tele2.mytele2",
+            "ru.hh.android", "ru.yota.android", "ru.gismeteo.gismeteo"
+        )
     }
 
     private lateinit var web: WebView
@@ -129,6 +159,7 @@ class ScActivity : ComponentActivity() {
         if (savedInstanceState == null) web.loadUrl(HOME) else web.restoreState(savedInstanceState)
         lifecycleScope.launch(Dispatchers.IO) { ensureGeoFiles() }
         // apk_v4: скорость в уведомлении включена по умолчанию (один раз)
+        lifecycleScope.launch(Dispatchers.IO) { syncDirectApps(firstRun = !prefs.getBoolean("defaults_v5", false)) }
         if (!prefs.getBoolean("defaults_v4", false)) {
             MmkvManager.encodeSettings(AppConfig.PREF_SPEED_ENABLED, true)
             prefs.edit().putBoolean("defaults_v4", true).apply()
@@ -236,6 +267,63 @@ class ScActivity : ComponentActivity() {
         }
     }
 
+    private fun installed(pkg: String): Boolean =
+        runCatching { packageManager.getApplicationInfo(pkg, 0); true }.getOrDefault(false)
+
+    /**
+     * apk_v5: «Приложения без VPN». Включаем режим обхода v2rayNG и добавляем установленные
+     * российские приложения из RU_DIRECT (кроме тех, что клиент сам снял).
+     */
+    private fun syncDirectApps(firstRun: Boolean) {
+        runCatching {
+            if (firstRun) {
+                MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY, true)
+                MmkvManager.encodeSettings(AppConfig.PREF_BYPASS_APPS, true)
+                prefs.edit().putBoolean("defaults_v5", true).apply()
+            }
+            if (MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY, false) != true) return
+            val removed = prefs.getStringSet("direct_removed", emptySet()) ?: emptySet()
+            val set = MmkvManager.decodeSettingsStringSet(AppConfig.PREF_PER_APP_PROXY_SET)?.toMutableSet() ?: mutableSetOf()
+            val before = set.size
+            RU_DIRECT.filter { it !in removed && it !in set && installed(it) }.forEach { set.add(it) }
+            if (set.size != before || firstRun) MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY_SET, set)
+        }
+    }
+
+    private fun iconData(pkg: String): String = runCatching {
+        val d = packageManager.getApplicationIcon(pkg)
+        val size = 72
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        d.setBounds(0, 0, size, size)
+        d.draw(c)
+        val out = ByteArrayOutputStream()
+        bmp.compress(Bitmap.CompressFormat.PNG, 90, out)
+        "data:image/png;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+    }.getOrDefault("")
+
+    private fun appsJson(): JSONObject {
+        val pm = packageManager
+        val on = MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY, false) == true &&
+            MmkvManager.decodeSettingsBool(AppConfig.PREF_BYPASS_APPS, false) == true
+        val set = MmkvManager.decodeSettingsStringSet(AppConfig.PREF_PER_APP_PROXY_SET) ?: mutableSetOf()
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        @Suppress("DEPRECATION")
+        val acts = pm.queryIntentActivities(launcher, 0)
+        val seen = HashSet<String>()
+        val arr = JSONArray()
+        acts.mapNotNull { ri ->
+            val pkg = ri.activityInfo?.packageName ?: return@mapNotNull null
+            if (pkg == BuildConfig.APPLICATION_ID || !seen.add(pkg)) return@mapNotNull null
+            Triple(pkg, ri.loadLabel(pm).toString(), pkg in RU_DIRECT)
+        }.sortedWith(compareBy<Triple<String, String, Boolean>>({ it.first !in set }, { !it.third }, { it.second.lowercase() }))
+            .forEach { (pkg, name, rec) ->
+                arr.put(JSONObject().put("pkg", pkg).put("name", name).put("sel", pkg in set)
+                    .put("rec", rec).put("icon", iconData(pkg)))
+            }
+        return JSONObject().put("type", "apps").put("on", on).put("list", arr)
+    }
+
     /** apk_v3: раскладываем geosite.dat / geoip.dat (раньше это делал только экран v2rayNG). */
     private fun ensureGeoFiles() {
         runCatching {
@@ -321,6 +409,38 @@ class ScActivity : ComponentActivity() {
             val tx = TrafficStats.getUidTxBytes(uid).coerceAtLeast(0L)
             return JSONObject().put("rx", rx).put("tx", tx).put("since", prefs.getLong("since", 0L))
                 .put("now", System.currentTimeMillis()).toString()
+        }
+
+        /** apk_v5: приложения без VPN */
+        @JavascriptInterface
+        fun directInfo(): String {
+            val on = MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY, false) == true &&
+                MmkvManager.decodeSettingsBool(AppConfig.PREF_BYPASS_APPS, false) == true
+            val n = MmkvManager.decodeSettingsStringSet(AppConfig.PREF_PER_APP_PROXY_SET)?.size ?: 0
+            return JSONObject().put("on", on).put("count", n).toString()
+        }
+
+        @JavascriptInterface
+        fun loadApps() {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val r = try { appsJson() } catch (e: Exception) {
+                    JSONObject().put("type", "apps").put("error", e.message ?: "Ошибка")
+                }
+                emit(r)
+            }
+        }
+
+        @JavascriptInterface
+        fun setDirect(on: Boolean, pkgsJson: String) {
+            val arr = runCatching { JSONArray(pkgsJson) }.getOrDefault(JSONArray())
+            val set = mutableSetOf<String>()
+            for (i in 0 until arr.length()) arr.optString(i).takeIf { it.isNotBlank() }?.let { set.add(it) }
+            val removed = RU_DIRECT.filter { it !in set && installed(it) }.toSet()
+            prefs.edit().putStringSet("direct_removed", removed).apply()
+            MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY, on)
+            MmkvManager.encodeSettings(AppConfig.PREF_BYPASS_APPS, true)
+            MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY_SET, set)
+            if (running) runOnUiThread { LauncherManager.restartService(this@ScActivity) }
         }
 
         @JavascriptInterface
