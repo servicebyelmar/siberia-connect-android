@@ -10,11 +10,11 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.v2ray.ang"
+        applicationId = "com.siberiaconnect.vpn"
         minSdk = 24
         targetSdk = 37
         versionCode = 755
-        versionName = "2.3.15"
+        versionName = "1.0.0"
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
         splits {
@@ -112,7 +112,7 @@ android {
                     else
                         "universal"
 
-                    output.outputFileName = "v2rayNG_${variant.versionName}_${abi}.apk"
+                    output.outputFileName = "SiberiaConnect_${variant.versionName}_${abi}.apk"
                     if (versionCodes.containsKey(abi)) {
                         output.versionCodeOverride =
                             (1000000 * versionCodes[abi]!!).plus(variant.versionCode)
