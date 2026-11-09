@@ -123,6 +123,7 @@ class ScActivity : ComponentActivity() {
             }
         })
         if (savedInstanceState == null) web.loadUrl(HOME) else web.restoreState(savedInstanceState)
+        lifecycleScope.launch(Dispatchers.IO) { ensureGeoFiles() }
 
         ContextCompat.registerReceiver(
             this, stateReceiver, IntentFilter(AppConfig.BROADCAST_ACTION_ACTIVITY), Utils.receiverFlags()
@@ -219,7 +220,24 @@ class ScActivity : ComponentActivity() {
 
     private fun startCore() {
         emit(JSONObject().put("type", "state").put("state", "connecting"))
-        LauncherManager.startService(this)
+        lifecycleScope.launch(Dispatchers.IO) {
+            ensureGeoFiles()
+            runOnUiThread { LauncherManager.startService(this@ScActivity) }
+        }
+    }
+
+    /** apk_v3: раскладываем geosite.dat / geoip.dat (раньше это делал только экран v2rayNG). */
+    private fun ensureGeoFiles() {
+        runCatching {
+            val dir = java.io.File(Utils.userAssetPath(this))
+            dir.mkdirs()
+            assets.list("")?.filter { it.startsWith("geo") && it.endsWith(".dat") }?.forEach { n ->
+                val f = java.io.File(dir, n)
+                if (!f.exists() || f.length() == 0L) {
+                    assets.open(n).use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+                }
+            }
+        }
     }
 
     inner class Bridge {
