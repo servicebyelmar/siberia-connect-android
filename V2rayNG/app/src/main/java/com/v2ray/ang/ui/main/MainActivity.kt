@@ -22,6 +22,7 @@ import com.v2ray.ang.extension.toastError
 import com.v2ray.ang.extension.toastSuccess
 import com.v2ray.ang.handler.AngConfigManager
 import com.v2ray.ang.handler.MmkvManager
+import com.v2ray.ang.handler.ScLock
 import com.v2ray.ang.handler.SettingsChangeManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.handler.SubscriptionInfoParser
@@ -30,6 +31,7 @@ import com.v2ray.ang.ui.backup.BackupActivity
 import com.v2ray.ang.ui.base.HelperBaseComponentActivity
 import com.v2ray.ang.ui.checkupdate.CheckUpdateActivity
 import com.v2ray.ang.ui.logcat.LogcatActivity
+import com.v2ray.ang.ui.sc.ScActivity
 import com.v2ray.ang.ui.perappproxy.PerAppProxyActivity
 import com.v2ray.ang.ui.routing.RoutingSettingActivity
 import com.v2ray.ang.ui.server.ProfileEditorResult
@@ -93,6 +95,15 @@ class MainActivity : HelperBaseComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (ScLock.ENABLED) {
+            // Siberia Connect: старый экран v2rayNG закрыт, всегда открываем наше приложение
+            startActivity(
+                Intent(this, ScActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            )
+            finish()
+            return
+        }
         mainViewModel.onAction(MainAction.Initialize)
 
         checkAndRequestPermission(PermissionType.POST_NOTIFICATIONS) {}
@@ -100,6 +111,7 @@ class MainActivity : HelperBaseComponentActivity() {
 
     @Composable
     override fun ScreenContent() {
+        if (ScLock.ENABLED) return
         BackHandler { moveTaskToBack(false) }
         MainScreen(
             mainViewModel = mainViewModel,

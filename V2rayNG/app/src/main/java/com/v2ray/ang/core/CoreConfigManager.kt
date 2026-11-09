@@ -15,6 +15,7 @@ import com.v2ray.ang.enums.CoreResolvedType
 import com.v2ray.ang.enums.EConfigType
 import com.v2ray.ang.extension.isNotNullEmpty
 import com.v2ray.ang.handler.MmkvManager
+import com.v2ray.ang.handler.ScLock
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.util.HttpUtil
 import com.v2ray.ang.util.JsonUtil
@@ -32,6 +33,9 @@ object CoreConfigManager {
      * Build the runtime configuration for normal startup.
      */
     fun getV2rayConfig(context: Context, guid: String): ConfigResult {
+        if (!ScLock.canRun(guid)) {
+            return ConfigResult(status = false, guid = guid, errorMessage = ScLock.DENIED_RUN)
+        }
         try {
             val configContext = CoreConfigContextBuilder.build(context, guid)
                 ?: return ConfigResult(
@@ -59,6 +63,9 @@ object CoreConfigManager {
      * The core flow is reused, then non-essential sections are removed.
      */
     fun getV2rayConfig4Speedtest(context: Context, guid: String): ConfigResult {
+        if (!ScLock.canRun(guid)) {
+            return ConfigResult(status = false, guid = guid, errorMessage = ScLock.DENIED_RUN)
+        }
         try {
             val configContext = CoreConfigContextBuilder.build(context, guid)
                 ?: return ConfigResult(

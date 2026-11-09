@@ -182,6 +182,11 @@ object AngConfigManager {
      * @return A pair containing the number of configurations and subscriptions imported.
      */
     fun importBatchConfig(server: String?, subid: String, append: Boolean): Pair<Int, Int> {
+        if (ScLock.ENABLED) {
+            // Siberia Connect: ручной импорт (буфер, QR, файлы, ссылки) закрыт — ключ добавляется только из кабинета
+            LogUtil.i(AppConfig.TAG, "ScLock: manual import blocked")
+            return 0 to 0
+        }
         return try {
             var count = parseBatchConfig(Utils.decode(server), subid, append)
             if (count <= 0) {
@@ -472,6 +477,11 @@ object AngConfigManager {
                 || TextUtils.isEmpty(it.subscription.remarks)
                 || TextUtils.isEmpty(it.subscription.url)
             ) {
+                return SubscriptionUpdateResult(skipCount = 1)
+            }
+
+            if (ScLock.ENABLED && !ScLock.isAllowedSubUrl(it.subscription.url)) {
+                // Siberia Connect: чужие подписки не обновляем
                 return SubscriptionUpdateResult(skipCount = 1)
             }
 

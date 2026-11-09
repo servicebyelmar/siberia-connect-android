@@ -33,6 +33,7 @@ import com.v2ray.ang.dto.entities.SubscriptionCache
 import com.v2ray.ang.dto.entities.SubscriptionItem
 import com.v2ray.ang.handler.AngConfigManager
 import com.v2ray.ang.handler.MmkvManager
+import com.v2ray.ang.handler.ScLock
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.handler.SubscriptionUpdater
 import com.v2ray.ang.helper.MessageHelper
@@ -254,11 +255,11 @@ class ScActivity : ComponentActivity() {
     }
 
     private fun ourSub(): SubscriptionCache? =
-        MmkvManager.decodeSubscriptions().firstOrNull { it.subscription.remarks == SUB_NAME }
+        MmkvManager.decodeSubscriptions().firstOrNull { it.subscription.remarks == SUB_NAME && ScLock.isOurSub(it) }
 
     private fun applySub(url: String): JSONObject {
         val out = JSONObject().put("type", "sub")
-        if (!url.startsWith("https://")) return out.put("ok", false).put("error", "Неверная ссылка подписки")
+        if (!ScLock.isAllowedSubUrl(url)) return out.put("ok", false).put("error", ScLock.DENIED_KEY)
         val existing = ourSub()
         val item = existing?.subscription ?: SubscriptionItem()
         item.remarks = SUB_NAME
@@ -510,7 +511,10 @@ class ScActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun advanced() {
-            runOnUiThread { startActivity(Intent(this@ScActivity, MainActivity::class.java)) }
+            // Siberia Connect: вместо экрана v2rayNG (там импорт чужих серверов) — только настройки
+            runOnUiThread {
+                startActivity(Intent(this@ScActivity, com.v2ray.ang.ui.settings.SettingsActivity::class.java))
+            }
         }
     }
 }
