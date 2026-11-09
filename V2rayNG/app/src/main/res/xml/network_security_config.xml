@@ -8,4 +8,13 @@
                 tools:ignore="AcceptsUserCertificates" />
         </trust-anchors>
     </base-config>
+    <!-- sec_v4: наши серверы — только сертификаты от корней Let's Encrypt (ISRG Root X1/X2) -->
+    <domain-config>
+        <domain includeSubdomains="false">snezhnet.duckdns.org</domain>
+        <domain includeSubdomains="false">sibirapp.duckdns.org</domain>
+        <pin-set expiration="2030-01-01">
+            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
+            <pin digest="SHA-256">diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=</pin>
+        </pin-set>
+    </domain-config>
 </network-security-config>
