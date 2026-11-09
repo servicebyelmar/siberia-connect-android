@@ -82,6 +82,44 @@ class ScActivity : ComponentActivity() {
             "com.vk.vkvideo", "ru.oneme.app", "ru.mts.mymts", "ru.beeline.services", "ru.megafon.mlk", "ru.tele2.mytele2",
             "ru.hh.android", "ru.yota.android", "ru.gismeteo.gismeteo"
         )
+
+        /** apk_v6: приложения, которым нужен VPN (заблокированы или тормозят в РФ). Всё остальное — напрямую. */
+        val NEED_VPN = setOf(
+            "com.google.android.youtube", "com.google.android.apps.youtube.music", "com.google.android.youtube.tv",
+            "app.revanced.android.youtube", "app.rvx.android.youtube", "com.vanced.android.youtube",
+            "com.instagram.android", "com.instagram.barcelona", "com.facebook.katana", "com.facebook.orca", "com.facebook.lite",
+            "com.whatsapp", "com.whatsapp.w4b", "org.telegram.messenger", "org.telegram.messenger.web", "org.thunderdog.challegram",
+            "org.telegram.plus", "com.twitter.android", "com.zhiliaoapp.musically", "com.ss.android.ugc.trill",
+            "com.discord", "com.openai.chatgpt", "com.anthropic.claude", "com.google.android.apps.bard", "ai.x.grok",
+            "ai.perplexity.app.android", "com.microsoft.copilot", "com.netflix.mediaclient", "com.spotify.music",
+            "com.linkedin.android", "com.reddit.frontpage", "com.pinterest", "tv.twitch.android.app", "com.snapchat.android",
+            "org.thoughtcrime.securesms", "com.viber.voip", "com.skype.raider", "com.patreon.android", "com.medium.reader",
+            "com.soundcloud.android", "com.deezer.android.app", "com.tumblr", "com.quora.android", "com.duolingo",
+            "com.android.chrome", "com.chrome.beta", "org.mozilla.firefox", "org.mozilla.firefox_beta", "com.opera.browser",
+            "com.opera.mini.native", "com.brave.browser", "com.microsoft.emmx", "com.sec.android.app.sbrowser",
+            "com.mi.globalbrowser", "com.duckduckgo.mobile.android", "com.vivaldi.browser", "com.kiwibrowser.browser",
+            "com.google.android.apps.photos", "com.google.android.gm", "com.google.android.apps.docs", "com.google.android.apps.translate"
+        )
+
+        /** apk_v6: маршрутизация — российские сайты и адреса напрямую (в браузере и везде). */
+        const val RU_ROUTING = """[
+ {"remarks":"Bypass bittorrent","outboundTag":"direct","protocol":["bittorrent"]},
+ {"remarks":"Block udp443","outboundTag":"block","port":"443","network":"udp"},
+ {"remarks":"Direct LAN IP","outboundTag":"direct","ip":["geoip:private"]},
+ {"remarks":"Direct LAN domains","outboundTag":"direct","domain":["geosite:private"]},
+ {"remarks":"Siberia Connect: российские сайты напрямую","outboundTag":"direct","domain":[
+  "domain:ru","domain:su","domain:xn--p1ai","domain:xn--80adxhks","domain:xn--d1acj3b",
+  "domain:yandex.net","domain:yandex.com","domain:yastatic.net","domain:yandexcloud.net","domain:yandex.cloud",
+  "domain:vk.com","domain:vk.me","domain:vkuser.net","domain:userapi.com","domain:vk-cdn.net","domain:vk-portal.net","domain:vkvideo.ru",
+  "domain:mycdn.me","domain:okcdn.ru","domain:mail.ru","domain:imgsmail.ru","domain:mradx.net",
+  "domain:2gis.com","domain:avito.st","domain:wbstatic.net","domain:wbbasket.ru","domain:ozone.ru","domain:ozonusercontent.com",
+  "domain:sberbank.com","domain:sber.ru","domain:sbrf.ru","domain:tbank-online.com","domain:tinkoffjournal.ru",
+  "domain:kaspersky.com","domain:drweb.com","domain:1c.ru","domain:mos.ru","domain:nalog.gov.ru","domain:gosuslugi.ru",
+  "domain:rutube.ru","domain:dzen.ru","domain:kinopoisk.ru","domain:ivi.ru","domain:okko.tv","domain:start.ru","domain:wink.ru",
+  "domain:max.ru","domain:oneme.ru","domain:rustore.ru","domain:hh.ru","domain:rzd.ru","domain:tutu.ru",
+  "geosite:category-ru"]},
+ {"remarks":"Siberia Connect: российские адреса напрямую","outboundTag":"direct","ip":["geoip:ru"]}
+]"""
     }
 
     private lateinit var web: WebView
@@ -159,7 +197,7 @@ class ScActivity : ComponentActivity() {
         if (savedInstanceState == null) web.loadUrl(HOME) else web.restoreState(savedInstanceState)
         lifecycleScope.launch(Dispatchers.IO) { ensureGeoFiles() }
         // apk_v4: скорость в уведомлении включена по умолчанию (один раз)
-        lifecycleScope.launch(Dispatchers.IO) { syncDirectApps(firstRun = !prefs.getBoolean("defaults_v5", false)) }
+        lifecycleScope.launch(Dispatchers.IO) { syncDirectApps(firstRun = !prefs.getBoolean("defaults_v6", false)) }
         if (!prefs.getBoolean("defaults_v4", false)) {
             MmkvManager.encodeSettings(AppConfig.PREF_SPEED_ENABLED, true)
             prefs.edit().putBoolean("defaults_v4", true).apply()
@@ -267,25 +305,38 @@ class ScActivity : ComponentActivity() {
         }
     }
 
-    private fun installed(pkg: String): Boolean =
-        runCatching { packageManager.getApplicationInfo(pkg, 0); true }.getOrDefault(false)
-
     /**
      * apk_v5: «Приложения без VPN». Включаем режим обхода v2rayNG и добавляем установленные
      * российские приложения из RU_DIRECT (кроме тех, что клиент сам снял).
+     */
+    private fun launcherApps(): List<android.content.pm.ResolveInfo> {
+        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        @Suppress("DEPRECATION")
+        return packageManager.queryIntentActivities(launcher, 0)
+    }
+
+    private fun launcherPkgs(): Set<String> =
+        launcherApps().mapNotNull { it.activityInfo?.packageName }.filter { it != BuildConfig.APPLICATION_ID }.toSet()
+
+    /**
+     * apk_v6: всё напрямую, кроме приложений из NEED_VPN (и тех, что клиент сам отправил через VPN).
+     * Новые установленные приложения тоже идут напрямую. Плюс маршруты: российские сайты напрямую.
      */
     private fun syncDirectApps(firstRun: Boolean) {
         runCatching {
             if (firstRun) {
                 MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY, true)
                 MmkvManager.encodeSettings(AppConfig.PREF_BYPASS_APPS, true)
-                prefs.edit().putBoolean("defaults_v5", true).apply()
+                MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY_SET, mutableSetOf<String>())
+                prefs.edit().remove("direct_removed").apply()
+                SettingsManager.resetRoutingRulesets(RU_ROUTING)
+                prefs.edit().putBoolean("defaults_v6", true).apply()
             }
             if (MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY, false) != true) return
-            val removed = prefs.getStringSet("direct_removed", emptySet()) ?: emptySet()
+            val viaVpn = prefs.getStringSet("direct_removed", emptySet()) ?: emptySet()
             val set = MmkvManager.decodeSettingsStringSet(AppConfig.PREF_PER_APP_PROXY_SET)?.toMutableSet() ?: mutableSetOf()
             val before = set.size
-            RU_DIRECT.filter { it !in removed && it !in set && installed(it) }.forEach { set.add(it) }
+            launcherPkgs().filter { it !in NEED_VPN && it !in viaVpn && it !in set }.forEach { set.add(it) }
             if (set.size != before || firstRun) MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY_SET, set)
         }
     }
@@ -307,9 +358,7 @@ class ScActivity : ComponentActivity() {
         val on = MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY, false) == true &&
             MmkvManager.decodeSettingsBool(AppConfig.PREF_BYPASS_APPS, false) == true
         val set = MmkvManager.decodeSettingsStringSet(AppConfig.PREF_PER_APP_PROXY_SET) ?: mutableSetOf()
-        val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        @Suppress("DEPRECATION")
-        val acts = pm.queryIntentActivities(launcher, 0)
+        val acts = launcherApps()
         val seen = HashSet<String>()
         val arr = JSONArray()
         acts.mapNotNull { ri ->
@@ -319,7 +368,7 @@ class ScActivity : ComponentActivity() {
         }.sortedWith(compareBy<Triple<String, String, Boolean>>({ it.first !in set }, { !it.third }, { it.second.lowercase() }))
             .forEach { (pkg, name, rec) ->
                 arr.put(JSONObject().put("pkg", pkg).put("name", name).put("sel", pkg in set)
-                    .put("rec", rec).put("icon", iconData(pkg)))
+                    .put("rec", rec).put("vpn", pkg in NEED_VPN).put("icon", iconData(pkg)))
             }
         return JSONObject().put("type", "apps").put("on", on).put("list", arr)
     }
@@ -435,7 +484,7 @@ class ScActivity : ComponentActivity() {
             val arr = runCatching { JSONArray(pkgsJson) }.getOrDefault(JSONArray())
             val set = mutableSetOf<String>()
             for (i in 0 until arr.length()) arr.optString(i).takeIf { it.isNotBlank() }?.let { set.add(it) }
-            val removed = RU_DIRECT.filter { it !in set && installed(it) }.toSet()
+            val removed = launcherPkgs().filter { it !in set }.toSet()
             prefs.edit().putStringSet("direct_removed", removed).apply()
             MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY, on)
             MmkvManager.encodeSettings(AppConfig.PREF_BYPASS_APPS, true)
