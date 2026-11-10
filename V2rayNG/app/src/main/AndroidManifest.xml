@@ -76,6 +76,13 @@
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
             </intent-filter>
+            <!-- link_v1: siberiaconnect://login?c=… — вход по ссылке из бота -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="siberiaconnect" android:host="login" />
+            </intent-filter>
         </activity>
         <activity
             android:name=".ui.main.MainActivity"

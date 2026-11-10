@@ -195,7 +195,7 @@ class ScActivity : ComponentActivity() {
                 }
             }
         })
-        if (savedInstanceState == null) web.loadUrl(HOME) else web.restoreState(savedInstanceState)
+        if (savedInstanceState == null) web.loadUrl(dlUrl(intent) ?: HOME) else web.restoreState(savedInstanceState)
         lifecycleScope.launch(Dispatchers.IO) { ensureGeoFiles() }
         // apk_v4: скорость в уведомлении включена по умолчанию (один раз)
         lifecycleScope.launch(Dispatchers.IO) { syncDirectApps(firstRun = !prefs.getBoolean("defaults_v6", false)) }
@@ -467,6 +467,22 @@ class ScActivity : ComponentActivity() {
                 updBusy = false
             }
         }.start()
+    }
+
+    // ── link_v1: вход по ссылке из бота ──
+    private fun dlUrl(i: Intent?): String? {
+        val d = i?.data ?: return null
+        if (d.scheme != "siberiaconnect" || d.host != "login") return null
+        val c = d.getQueryParameter("c") ?: return null
+        if (!Regex("^[A-Za-z0-9_-]{8,64}$").matches(c)) return null
+        return "$HOME&dl=$c"
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val u = dlUrl(intent) ?: return
+        if (::web.isInitialized) web.loadUrl(u)
     }
 
     inner class Bridge {
