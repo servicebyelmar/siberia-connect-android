@@ -223,6 +223,8 @@ class ScActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // upd_v1: вернулись из настроек с разрешением — сразу открываем установщик
+        if (updPending && updCanInstall()) { updPending = false; updFile?.let { updInstall(it) } }
         MessageHelper.sendMsg2Service(this, AppConfig.MSG_REGISTER_CLIENT, "")
     }
 
@@ -388,6 +390,85 @@ class ScActivity : ComponentActivity() {
         }
     }
 
+    // ── upd_v1: обновление приложения изнутри ──
+    @Volatile private var updBusy = false
+    private var updFile: java.io.File? = null
+    private var updPending = false
+
+    private fun updEmit(stage: String, pct: Int = 0, text: String = "") =
+        emit(JSONObject().put("type", "update").put("stage", stage).put("pct", pct).put("text", text))
+
+    private fun updCanInstall(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()
+
+    private fun updInstall(f: java.io.File) {
+        if (!updCanInstall()) {
+            updPending = true
+            updEmit("perm")
+            runOnUiThread {
+                runCatching { startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))) }
+            }
+            return
+        }
+        runOnUiThread {
+            runCatching {
+                val uri = androidx.core.content.FileProvider.getUriForFile(this@ScActivity, "$packageName.scupdate", f)
+                startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                updEmit("install")
+            }.onFailure { updEmit("error", text = "Не удалось открыть установщик Android") }
+        }
+    }
+
+    private fun updRun() {
+        updFile?.let { if (it.exists()) { updInstall(it); return } }
+        if (updBusy) return
+        updBusy = true
+        Thread {
+            try {
+                val dir = java.io.File(cacheDir, "upd").apply { mkdirs() }
+                val tmp = java.io.File(dir, "dl.part")
+                val c = java.net.URL("https://sibirapp.duckdns.org/app/dl/SiberiaConnect.apk").openConnection() as java.net.HttpURLConnection
+                c.connectTimeout = 15000
+                c.readTimeout = 30000
+                c.setRequestProperty("Cache-Control", "no-cache")
+                if (c.responseCode != 200) throw Exception("сервер ответил ${c.responseCode}")
+                val total = c.contentLength.toLong()
+                c.inputStream.use { inp ->
+                    tmp.outputStream().use { out ->
+                        val buf = ByteArray(65536)
+                        var done = 0L
+                        var last = -1
+                        while (true) {
+                            val n = inp.read(buf)
+                            if (n < 0) break
+                            out.write(buf, 0, n)
+                            done += n
+                            if (total > 0) {
+                                val p = (done * 100 / total).toInt()
+                                if (p != last) { last = p; updEmit("download", p) }
+                            }
+                        }
+                    }
+                }
+                // это точно наше приложение; подпись при установке Android сверит сам — чужой APK поверх не встанет
+                if (packageManager.getPackageArchiveInfo(tmp.path, 0)?.packageName != packageName) {
+                    tmp.delete()
+                    throw Exception("файл обновления повреждён")
+                }
+                val f = java.io.File(dir, "SiberiaConnect.apk")
+                f.delete()
+                if (!tmp.renameTo(f)) throw Exception("не удалось сохранить файл")
+                updFile = f
+                updInstall(f)
+            } catch (e: Exception) {
+                updEmit("error", text = "Не удалось скачать обновление: " + (e.message ?: "проверь интернет"))
+            } finally {
+                updBusy = false
+            }
+        }.start()
+    }
+
     inner class Bridge {
         @JavascriptInterface
         fun version(): String = BuildConfig.VERSION_NAME
@@ -508,6 +589,9 @@ class ScActivity : ComponentActivity() {
                     .onFailure { emit(JSONObject().put("type", "toast").put("text", "Открой Настройки → VPN вручную")) }
             }
         }
+
+        @JavascriptInterface
+        fun installUpdate() = updRun()
 
         @JavascriptInterface
         fun advanced() {
