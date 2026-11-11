@@ -28,6 +28,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.BuildConfig
+import com.v2ray.ang.core.CoreConfigManager
+import com.v2ray.ang.core.CoreNativeManager
 import com.v2ray.ang.core.LauncherManager
 import com.v2ray.ang.dto.entities.SubscriptionCache
 import com.v2ray.ang.dto.entities.SubscriptionItem
@@ -40,11 +42,15 @@ import com.v2ray.ang.helper.MessageHelper
 import com.v2ray.ang.ui.main.MainActivity
 import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Siberia Connect: главный экран приложения.
@@ -126,6 +132,16 @@ class ScActivity : ComponentActivity() {
     private lateinit var web: WebView
     private val prefs by lazy { getSharedPreferences("sc_app", MODE_PRIVATE) }
 
+    /** 1.1.0: вход без Telegram, единый статус, связка с Telegram (сервер: id_v1) */
+    private val account by lazy { ScAccount(prefs) { devId() } }
+
+    /** 1.1.0: «Северное Сияние (Авто)» — задержка последней проверки по каждому серверу, мс (-1 — не ответил) */
+    private val pings = ConcurrentHashMap<String, Long>()
+
+    @Volatile
+    private var preparing = false
+    private var lastFailover = 0L
+
     @Volatile
     private var running = false
 
@@ -154,6 +170,13 @@ class ScActivity : ComponentActivity() {
                 }
                 AppConfig.MSG_STATE_START_FAILURE -> {
                     running = false
+                    // 1.1.0: в «Авто» один раз за 3 минуты сами пробуем другой сервер
+                    if (autoMode() && System.currentTimeMillis() - lastFailover > 180_000L && serverCount() > 1) {
+                        lastFailover = System.currentTimeMillis()
+                        emit(JSONObject().put("type", "toast").put("text", "Сервер не ответил — выбираю другой"))
+                        connectFlow()
+                        return
+                    }
                     emit(JSONObject().put("type", "state").put("state", "error")
                         .put("error", i.getStringExtra("content").orEmpty()))
                 }
@@ -187,6 +210,11 @@ class ScActivity : ComponentActivity() {
                 openExternal(u.toString())
                 return true
             }
+
+            override fun onPageFinished(view: WebView, url: String?) {
+                super.onPageFinished(view, url)
+                syncToken()   // 1.1.0: общий вход приложения и кабинета
+            }
         }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -195,7 +223,17 @@ class ScActivity : ComponentActivity() {
                 }
             }
         })
-        if (savedInstanceState == null) web.loadUrl(dlUrl(intent) ?: HOME) else web.restoreState(savedInstanceState)
+        if (savedInstanceState != null) web.restoreState(savedInstanceState)
+        else if (account.needsAutoRegister(hasSubNow())) {
+            // 1.1.0: первый запуск без ключа — аккаунт и пробный день создаются сами, кабинет откроется уже с входом
+            val start = dlUrl(intent) ?: HOME
+            lifecycleScope.launch(Dispatchers.IO) {
+                runCatching {
+                    if (account.autoRegister()) applyActiveLink(account.last)
+                }
+                runOnUiThread { web.loadUrl(start) }
+            }
+        } else web.loadUrl(dlUrl(intent) ?: HOME)
         lifecycleScope.launch(Dispatchers.IO) { ensureGeoFiles() }
         // apk_v4: скорость в уведомлении включена по умолчанию (один раз)
         lifecycleScope.launch(Dispatchers.IO) { syncDirectApps(firstRun = !prefs.getBoolean("defaults_v6", false)) }
@@ -226,6 +264,7 @@ class ScActivity : ComponentActivity() {
         // upd_v1: вернулись из настроек с разрешением — сразу открываем установщик
         if (updPending && updCanInstall()) { updPending = false; updFile?.let { updInstall(it) } }
         MessageHelper.sendMsg2Service(this, AppConfig.MSG_REGISTER_CLIENT, "")
+        syncToken()
     }
 
     override fun onDestroy() {
@@ -284,6 +323,107 @@ class ScActivity : ComponentActivity() {
         if (list.isNotEmpty() && (sel == null || !list.contains(sel))) MmkvManager.setSelectServer(list.first())
         return out.put("ok", list.isNotEmpty()).put("count", list.size).put("updated", res.successCount)
             .put("error", if (list.isEmpty()) "Сервер не выдал список. Проверь интернет или лимит устройств" else "")
+    }
+
+    // ───────────── 1.1.0: вход, статус, «Северное Сияние (Авто)» ─────────────
+
+    private fun hasSubNow(): Boolean = ourSub()?.let { MmkvManager.decodeServerList(it.guid).isNotEmpty() } ?: false
+
+    private fun serverCount(): Int = ourSub()?.let { MmkvManager.decodeServerList(it.guid).size } ?: 0
+
+    private fun autoMode(): Boolean = prefs.getBoolean("auto", true)
+
+    /** Сервер выдал (новый) ключ этого устройства — ставим его. */
+    private fun applyActiveLink(st: JSONObject?) {
+        if (st?.optString("state") != "active") return
+        val link = st.optString("link")
+        if (ScLock.isAllowedSubUrl(link) && link != ourSub()?.subscription?.url) applySub(link)
+    }
+
+    /**
+     * Токен кабинета (localStorage 'sc_tok') ↔ токен приложения.
+     * Кабинет вошёл — приложение запоминает его вход; у кабинета входа нет, а у приложения есть — отдаём ему;
+     * кабинет вышел после того, как знал наш токен, — выходит и приложение.
+     */
+    private fun syncToken() {
+        if (!::web.isInitialized) return
+        val url = web.url ?: return
+        if (!url.startsWith("https://$HOST/")) return
+        web.evaluateJavascript("(function(){try{return localStorage.getItem('sc_tok')||''}catch(e){return ''}})()") { raw ->
+            val pageTok = runCatching { org.json.JSONTokener(raw ?: "").nextValue() as? String }.getOrNull().orEmpty()
+            val nat = account.token
+            if (pageTok.isNotEmpty()) {
+                if (pageTok != nat) account.adopt(pageTok)
+                prefs.edit().putString("tok_seen", pageTok).apply()
+            } else if (nat.isNotEmpty()) {
+                if (prefs.getString("tok_seen", "") == nat) {
+                    account.adopt("")   // кабинет знал этот вход и вышел — выходим и мы
+                } else {
+                    prefs.edit().putString("tok_seen", nat).apply()
+                    val js = JSONObject.quote(nat)
+                    web.evaluateJavascript("try{localStorage.setItem('sc_tok',$js);location.reload()}catch(e){}", null)
+                }
+            }
+        }
+    }
+
+    /** Подключение: статус аккаунта → (новый ключ) → выбор сервера в «Авто» → запуск. */
+    private fun connectFlow() {
+        if (preparing) return
+        preparing = true
+        emit(JSONObject().put("type", "state").put("state", "connecting"))
+        lifecycleScope.launch(Dispatchers.IO) {
+            var go = true
+            try {
+                val st = runCatching { account.status() }.getOrNull()
+                if (st != null) {
+                    val state = st.optString("state")
+                    if (state in ScAccount.BAD_STATES) {
+                        go = false
+                        val msg = st.optString("message").ifEmpty { "Нет активной подписки" }
+                        emit(JSONObject().put("type", "account").put("state", state).put("message", msg))
+                        emit(JSONObject().put("type", "state").put("state", "error").put("error", msg))
+                        if (state == "expired") runOnUiThread {
+                            if (::web.isInitialized) web.evaluateJavascript("try{go('plans')}catch(e){}", null)
+                        }
+                    } else {
+                        runCatching { applyActiveLink(st) }
+                    }
+                }
+                if (go && autoMode()) runCatching { pickAuto() }
+            } finally {
+                preparing = false
+            }
+            if (go) runOnUiThread { requestStart() }
+        }
+    }
+
+    /**
+     * «Северное Сияние»: реальная проверка всех серверов подписки через ядро Xray (запрос через туннель).
+     * Побеждает самый быстрый; при почти равной скорости — тот, что выше в подписке (сервер ставит первыми свободные ноды).
+     */
+    private suspend fun pickAuto() {
+        val sub = ourSub() ?: return
+        val list = MmkvManager.decodeServerList(sub.guid)
+        if (list.size < 2) return
+        runCatching { CoreNativeManager.initCoreEnv(applicationContext) }
+        val url = SettingsManager.getDelayTestUrl()
+        val res = ConcurrentHashMap<Int, Long>()
+        val jobs = list.mapIndexed { i, g ->
+            lifecycleScope.async(Dispatchers.IO) {
+                val cfg = CoreConfigManager.getV2rayConfig4Speedtest(this@ScActivity, g)
+                res[i] = if (cfg.status) CoreNativeManager.measureOutboundDelay(cfg.content, url) else -1L
+            }
+        }
+        withTimeoutOrNull(10_000L) { jobs.awaitAll() }
+        pings.clear()
+        list.forEachIndexed { i, g -> pings[g] = res[i] ?: -1L }
+        val ok = list.indices.filter { (res[it] ?: -1L) > 0L }
+        if (ok.isEmpty()) return   // никто не ответил — скорее всего, нет интернета; оставляем прежний сервер
+        val best = ok.minOf { res[it]!! }
+        val slack = maxOf(20L, best * 15 / 100)
+        val pick = ok.filter { res[it]!! <= best + slack }.minOrNull() ?: return
+        MmkvManager.setSelectServer(list[pick])
     }
 
     private fun requestStart() {
@@ -515,7 +655,7 @@ class ScActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun connect() {
-            runOnUiThread { requestStart() }
+            connectFlow()   // 1.1.0: статус → ключ → «Авто» → запуск
         }
 
         @JavascriptInterface
@@ -527,19 +667,63 @@ class ScActivity : ComponentActivity() {
         fun servers(): String {
             val sub = ourSub() ?: return "[]"
             val sel = MmkvManager.getSelectServer()
+            val list = MmkvManager.decodeServerList(sub.guid)
+            val auto = autoMode() && list.size > 1
             val arr = JSONArray()
-            MmkvManager.decodeServerList(sub.guid).forEach { g ->
+            if (list.size > 1) {
+                // 1.1.0: «Северное Сияние (Авто)» первым пунктом — кабинет показывает его как обычный сервер
+                val activeName = if (running && sel != null) MmkvManager.decodeServerConfig(sel)?.remarks else null
+                arr.put(JSONObject().put("guid", "auto").put("auto", true).put("selected", auto)
+                    .put("name", if (auto && activeName != null) "⚡️ Северное Сияние → $activeName" else "⚡️ Северное Сияние (Авто)"))
+            }
+            list.forEach { g ->
                 val p = MmkvManager.decodeServerConfig(g) ?: return@forEach
-                arr.put(JSONObject().put("guid", g).put("name", p.remarks).put("selected", g == sel))
+                arr.put(JSONObject().put("guid", g).put("name", p.remarks).put("selected", !auto && g == sel)
+                    .put("active", running && g == sel).put("ping", pings[g] ?: 0L))
             }
             return arr.toString()
         }
 
         @JavascriptInterface
         fun select(guid: String) {
+            if (guid == "auto") {
+                prefs.edit().putBoolean("auto", true).apply()
+                if (running) lifecycleScope.launch(Dispatchers.IO) {
+                    runCatching { pickAuto() }
+                    runOnUiThread { LauncherManager.restartService(this@ScActivity) }
+                }
+                return
+            }
+            prefs.edit().putBoolean("auto", false).apply()
             runOnUiThread {
+                val was = MmkvManager.getSelectServer()
                 MmkvManager.setSelectServer(guid)
-                if (running) LauncherManager.restartService(this@ScActivity)
+                if (running && was != guid) LauncherManager.restartService(this@ScActivity)
+            }
+        }
+
+        /** 1.1.0 */
+        @JavascriptInterface
+        fun autoMode(): Boolean = this@ScActivity.autoMode()
+
+        @JavascriptInterface
+        fun setAutoMode(on: Boolean) {
+            if (on) select("auto") else prefs.edit().putBoolean("auto", false).apply()
+        }
+
+        @JavascriptInterface
+        fun account(): String = this@ScActivity.account.last?.optString("state").orEmpty()
+
+        @JavascriptInterface
+        fun linkTelegram() {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val (code, info) = this@ScActivity.account.linkCode()
+                if (code == null) {
+                    emit(JSONObject().put("type", "toast").put("text", info))
+                    return@launch
+                }
+                if (info.isNotEmpty()) runOnUiThread { this@ScActivity.openExternal(info) }
+                emit(JSONObject().put("type", "toast").put("text", "Открыл бота. Если не открылся — отправь ему /link $code"))
             }
         }
 
