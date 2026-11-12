@@ -27,6 +27,7 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
         private const val K_TOKEN = "auth_token"
         private const val K_FROM_INSTALL = "token_from_install"
         private const val K_REG_DONE = "auto_reg_done"
+        private const val K_GUEST = "acc_guest"
         val BAD_STATES = setOf("expired", "blocked", "device_limit", "no_account")
     }
 
@@ -37,8 +38,17 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
 
     val token: String get() = prefs.getString(K_TOKEN, "").orEmpty()
 
-    /** unified_v1: входа ещё нет — ссылку «Подключить в 1 клик» из бота принимаем без лишнего вопроса. */
-    val replaceable: Boolean get() = token.isEmpty()
+    /**
+     * unified_v1: входа ещё нет — ссылку «Подключить в 1 клик» из бота принимаем без лишнего вопроса.
+     * acc_switch_v1 (1.2.2): открыт гостевой пробный аккаунт (без Telegram и оплат) — тоже без вопроса:
+     * раньше гость получал «Войти как …?», который затирался другими окнами, и войти в свой аккаунт было нельзя.
+     */
+    val replaceable: Boolean get() = token.isEmpty() || prefs.getBoolean(K_GUEST, false)
+
+    private fun rememberKind(st: JSONObject?) {
+        if (st == null) return
+        prefs.edit().putBoolean(K_GUEST, st.optBoolean("app_only") && !st.optBoolean("paid")).apply()
+    }
 
     fun needsAutoRegister(hasSub: Boolean): Boolean =
         !hasSub && token.isEmpty() && !prefs.getBoolean(K_REG_DONE, false)
@@ -75,13 +85,14 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
     fun autoRegister(): Boolean {
         val (code, r) = post("device", JSONObject().put("secret", secret()).put("did", did()).put("platform", "android"))
         if (code != 200 || r == null || !r.optBoolean("ok")) {
-            if (code == 429 || code == 400) prefs.edit().putBoolean(K_REG_DONE, true).apply()   // не долбим сервер
+            // known_device: телефон уже был в Telegram-аккаунте — гостя не создаём, кабинет покажет вход
+            if (code == 429 || code == 400 || r?.optBoolean("known_device") == true) prefs.edit().putBoolean(K_REG_DONE, true).apply()
             return false
         }
         val t = r.optString("token")
         if (t.isEmpty()) return false
         prefs.edit().putString(K_TOKEN, t).putBoolean(K_FROM_INSTALL, true).putBoolean(K_REG_DONE, true).apply()
-        r.optJSONObject("status")?.let { last = it }
+        r.optJSONObject("status")?.let { last = it; rememberKind(it) }
         return true
     }
 
@@ -89,7 +100,8 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
     fun adopt(t: String) {
         val v = t.trim()
         if (v.length > 100 || v == token) return
-        prefs.edit().putString(K_TOKEN, v).putBoolean(K_FROM_INSTALL, false).putBoolean(K_REG_DONE, true).apply()
+        prefs.edit().putString(K_TOKEN, v).putBoolean(K_FROM_INSTALL, false).putBoolean(K_REG_DONE, true)
+            .putBoolean(K_GUEST, false).apply()
         if (v.isEmpty()) last = null
     }
 
@@ -109,6 +121,7 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
         if (st == null) return null
         if (st.optString("state") == "relogin" && fromInstall) return if (autoRegister()) last else null
         last = st
+        rememberKind(st)
         return st
     }
 
