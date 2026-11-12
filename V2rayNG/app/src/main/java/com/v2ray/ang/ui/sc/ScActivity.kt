@@ -238,7 +238,7 @@ class ScActivity : ComponentActivity() {
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
                 val uri = url?.let { runCatching { Uri.parse(it) }.getOrNull() }
-                if (uri?.authority in allowedAuthorities && uri.path?.startsWith("/app/") == true) {
+                if (uri?.authority in allowedAuthorities && uri?.path?.startsWith("/app/") == true) {
                     homeLoaded = true
                     homeHandler.removeCallbacksAndMessages(null)
                 }
@@ -387,7 +387,7 @@ class ScActivity : ComponentActivity() {
     private fun syncToken() {
         if (!::web.isInitialized) return
         val url = web.url ?: return
-        if (!url.startsWith("https://$HOST/")) return
+        if (!allowedAuthorities.any { url.startsWith("https://$it/") }) return
         web.evaluateJavascript("(function(){try{return localStorage.getItem('sc_tok')||''}catch(e){return ''}})()") { raw ->
             val pageTok = runCatching { org.json.JSONTokener(raw ?: "").nextValue() as? String }.getOrNull().orEmpty()
             val nat = account.token

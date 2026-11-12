@@ -22,7 +22,7 @@ import java.security.SecureRandom
 class ScAccount(private val prefs: SharedPreferences, private val did: () -> String) {
 
     companion object {
-        private const val BASE = "https://${ScActivity.HOST}/app/api/v1/"
+        private const val BASE = "https://${ScActivity.PRIMARY_HOST}/app/api/v1/"
         private const val K_SECRET = "inst_secret"
         private const val K_TOKEN = "auth_token"
         private const val K_FROM_INSTALL = "token_from_install"
