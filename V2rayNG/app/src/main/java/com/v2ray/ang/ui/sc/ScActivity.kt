@@ -143,6 +143,10 @@ class ScActivity : ComponentActivity() {
     private var currentHome = PRIMARY_HOME
     private val allowedAuthorities get() = setOf(PRIMARY_HOST, FALLBACK_HOST).filter { it.isNotBlank() }
 
+    /** unified_v1: резервный адрес кабинета с теми же параметрами (вход по ссылке не теряется). */
+    private fun fallbackOf(url: String): String =
+        if (url.startsWith("https://$PRIMARY_HOST/")) url.replaceFirst("https://$PRIMARY_HOST/", "https://$FALLBACK_HOST/") else FALLBACK_HOME
+
     private fun loadHome(url: String, fallback: Boolean = false) {
         currentHome = url
         homeLoaded = false
@@ -151,7 +155,7 @@ class ScActivity : ComponentActivity() {
         homeHandler.removeCallbacksAndMessages(null)
         homeHandler.postDelayed({
             if (!homeLoaded && !fallbackTried && FALLBACK_HOST.isNotBlank() && FALLBACK_HOST != PRIMARY_HOST) {
-                loadHome(FALLBACK_HOME, fallback = true)
+                loadHome(fallbackOf(url), fallback = true)
             }
         }, 3_000)
     }
@@ -250,7 +254,7 @@ class ScActivity : ComponentActivity() {
                 super.onReceivedError(view, errorCode, description, failingUrl)
                 val authority = runCatching { Uri.parse(failingUrl).authority }.getOrNull()
                 if (!fallbackTried && authority in allowedAuthorities && authority == PRIMARY_HOST && FALLBACK_HOST.isNotBlank() && FALLBACK_HOST != PRIMARY_HOST) {
-                    loadHome(FALLBACK_HOME, fallback = true)
+                    loadHome(fallbackOf(currentHome), fallback = true)
                 }
             }
         }
@@ -262,7 +266,7 @@ class ScActivity : ComponentActivity() {
             }
         })
         if (savedInstanceState != null) web.restoreState(savedInstanceState)
-        else if (account.needsAutoRegister(hasSubNow())) {
+        else if (account.needsAutoRegister(hasSubNow()) && dlCode(intent) == null) {
             // 1.1.0: первый запуск без ключа — аккаунт и пробный день создаются сами, кабинет откроется уже с входом
             val start = dlUrl(intent) ?: PRIMARY_HOME
             lifecycleScope.launch(Dispatchers.IO) {
@@ -364,6 +368,29 @@ class ScActivity : ComponentActivity() {
             .put("error", if (list.isEmpty()) "Сервер не выдал список. Проверь интернет или лимит устройств" else "")
     }
 
+    /**
+     * unified_v1: та же подписка с резервом — основной адрес слоя подписок, затем relay (и наоборот).
+     * Пустой список или одна заглушка 127.0.0.1 («ключ не принят») — пробуем следующий адрес.
+     */
+    private fun applySubAny(url: String): JSONObject {
+        var last: JSONObject? = null
+        for (u in ScLock.subCandidates(url)) {
+            val r = runCatching { applySub(u) }.getOrElse {
+                JSONObject().put("type", "sub").put("ok", false).put("error", it.message ?: "Ошибка")
+            }
+            if (r.optBoolean("ok") && !placeholderOnly()) return r
+            if (r.optBoolean("ok")) r.put("ok", false).put("error", "Сервер не принял ключ — проверь лимит устройств")
+            last = r
+        }
+        return last ?: applySub(url)
+    }
+
+    private fun placeholderOnly(): Boolean {
+        val sub = ourSub() ?: return true
+        val list = MmkvManager.decodeServerList(sub.guid)
+        return list.isNotEmpty() && list.all { MmkvManager.decodeServerConfig(it)?.server == "127.0.0.1" }
+    }
+
     // ───────────── 1.1.0: вход, статус, «Северное Сияние (Авто)» ─────────────
 
     private fun hasSubNow(): Boolean = ourSub()?.let { MmkvManager.decodeServerList(it.guid).isNotEmpty() } ?: false
@@ -376,7 +403,7 @@ class ScActivity : ComponentActivity() {
     private fun applyActiveLink(st: JSONObject?) {
         if (st?.optString("state") != "active") return
         val link = st.optString("link")
-        if (ScLock.isAllowedSubUrl(link) && link != ourSub()?.subscription?.url) applySub(link)
+        if (ScLock.isAllowedSubUrl(link) && link !in ScLock.subCandidates(ourSub()?.subscription?.url)) applySubAny(link)
     }
 
     /**
@@ -649,12 +676,18 @@ class ScActivity : ComponentActivity() {
     }
 
     // ── link_v1: вход по ссылке из бота ──
-    private fun dlUrl(i: Intent?): String? {
+    // unified_v1: siberiaconnect://auth?token=… (и старый login?c=…) — одноразовый вход «Подключить в 1 клик»
+    private fun dlCode(i: Intent?): String? {
         val d = i?.data ?: return null
-        if (d.scheme != "siberiaconnect" || d.host != "login") return null
-        val c = d.getQueryParameter("c") ?: return null
-        if (!Regex("^[A-Za-z0-9_-]{8,64}$").matches(c)) return null
-        return "$PRIMARY_HOME&dl=$c"
+        if (d.scheme != "siberiaconnect" || (d.host != "login" && d.host != "auth")) return null
+        val c = d.getQueryParameter("token") ?: d.getQueryParameter("c") ?: return null
+        return c.takeIf { Regex("^[A-Za-z0-9_-]{8,64}$").matches(it) }
+    }
+
+    /** Входа ещё нет — кабинет входит сразу (dla); есть другой аккаунт — спросит «Войти как …?» (dl). */
+    private fun dlUrl(i: Intent?): String? {
+        val c = dlCode(i) ?: return null
+        return if (account.replaceable) "$PRIMARY_HOME&dla=$c" else "$PRIMARY_HOME&dl=$c"
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -702,7 +735,7 @@ class ScActivity : ComponentActivity() {
         fun setSub(url: String) {
             lifecycleScope.launch(Dispatchers.IO) {
                 val r = try {
-                    applySub(url)
+                    applySubAny(url)
                 } catch (e: Exception) {
                     JSONObject().put("type", "sub").put("ok", false).put("error", e.message ?: "Ошибка")
                 }

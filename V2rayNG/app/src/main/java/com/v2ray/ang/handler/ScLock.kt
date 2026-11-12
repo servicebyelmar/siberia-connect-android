@@ -10,7 +10,21 @@ import java.net.URI
 object ScLock {
     val ENABLED = true
     const val SUB_NAME = "Siberia Connect"
-    val ALLOWED_HOSTS = setOf("snezhnet.duckdns.org", "sibirapp.duckdns.org")
+    /** unified_v1: + relay sibir-cloud-api.ru — подписка с резервного адреса тоже «своя» */
+    val ALLOWED_HOSTS = setOf("snezhnet.duckdns.org", "sibirapp.duckdns.org", "sibir-cloud-api.ru")
+
+    /** unified_v1: адреса слоя подписок (тот же путь и ключ) — основной и резерв; при сбое пробуем следующий */
+    val SUB_AUTHORITIES = listOf("snezhnet.duckdns.org:2096", "sibir-cloud-api.ru:9443")
+
+    /** Та же подписка на всех адресах слоя подписок: сначала исходный, затем остальные. */
+    fun subCandidates(url: String?): List<String> {
+        if (url.isNullOrBlank()) return emptyList()
+        val u = runCatching { URI(url.trim()) }.getOrNull() ?: return listOf(url)
+        val auth = u.rawAuthority ?: return listOf(url)
+        if (auth !in SUB_AUTHORITIES) return listOf(url)
+        val tail = (u.rawPath ?: "") + (u.rawQuery?.let { "?$it" } ?: "")
+        return listOf(url) + SUB_AUTHORITIES.filter { it != auth }.map { "https://$it$tail" }
+    }
     const val DENIED_KEY = "Это не ключ Siberia Connect"
     const val DENIED_RUN = "Можно подключаться только к серверам Siberia Connect"
 

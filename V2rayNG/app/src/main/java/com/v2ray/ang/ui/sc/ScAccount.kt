@@ -37,6 +37,9 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
 
     val token: String get() = prefs.getString(K_TOKEN, "").orEmpty()
 
+    /** unified_v1: входа ещё нет — ссылку «Подключить в 1 клик» из бота принимаем без лишнего вопроса. */
+    val replaceable: Boolean get() = token.isEmpty()
+
     fun needsAutoRegister(hasSub: Boolean): Boolean =
         !hasSub && token.isEmpty() && !prefs.getBoolean(K_REG_DONE, false)
 
