@@ -3,6 +3,8 @@ package com.v2ray.ang.ui.sc
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -14,6 +16,8 @@ import android.net.TrafficStats
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Base64
 import android.webkit.JavascriptInterface
@@ -60,8 +64,10 @@ import java.util.concurrent.ConcurrentHashMap
 class ScActivity : ComponentActivity() {
 
     companion object {
-        const val HOST = "sibirapp.duckdns.org"
-        const val HOME = "https://$HOST/app/?native=1"
+        const val PRIMARY_HOST = "sibirapp.duckdns.org"
+        const val FALLBACK_HOST = "sibir-cloud-api.ru:9443"
+        const val PRIMARY_HOME = "https://$PRIMARY_HOST/app/?native=1"
+        const val FALLBACK_HOME = "https://$FALLBACK_HOST/app/?native=1"
         const val SUB_NAME = "Siberia Connect"
 
         /** apk_v5: российские приложения, которые по умолчанию идут мимо VPN */
@@ -131,6 +137,24 @@ class ScActivity : ComponentActivity() {
 
     private lateinit var web: WebView
     private val prefs by lazy { getSharedPreferences("sc_app", MODE_PRIVATE) }
+    private val homeHandler = Handler(Looper.getMainLooper())
+    private var homeLoaded = false
+    private var fallbackTried = false
+    private var currentHome = PRIMARY_HOME
+    private val allowedAuthorities get() = setOf(PRIMARY_HOST, FALLBACK_HOST).filter { it.isNotBlank() }
+
+    private fun loadHome(url: String, fallback: Boolean = false) {
+        currentHome = url
+        homeLoaded = false
+        fallbackTried = fallback
+        web.loadUrl(url)
+        homeHandler.removeCallbacksAndMessages(null)
+        homeHandler.postDelayed({
+            if (!homeLoaded && !fallbackTried && FALLBACK_HOST.isNotBlank() && FALLBACK_HOST != PRIMARY_HOST) {
+                loadHome(FALLBACK_HOME, fallback = true)
+            }
+        }, 3_000)
+    }
 
     /** 1.1.0: вход без Telegram, единый статус, связка с Telegram (сервер: id_v1) */
     private val account by lazy { ScAccount(prefs) { devId() } }
@@ -205,15 +229,29 @@ class ScActivity : ComponentActivity() {
         web.webChromeClient = WebChromeClient()
         web.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                val u = request.url
-                if ((u.scheme == "https" || u.scheme == "http") && u.host == HOST) return false
-                openExternal(u.toString())
+                val uri = request.url
+                if ((uri.scheme == "https" || uri.scheme == "http") && uri.authority in allowedAuthorities) return false
+                openExternal(uri.toString())
                 return true
             }
 
             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
+                val uri = url?.let { runCatching { Uri.parse(it) }.getOrNull() }
+                if (uri?.authority in allowedAuthorities && uri.path?.startsWith("/app/") == true) {
+                    homeLoaded = true
+                    homeHandler.removeCallbacksAndMessages(null)
+                }
                 syncToken()   // 1.1.0: общий вход приложения и кабинета
+            }
+
+            @Deprecated("Deprecated in Java")
+            override fun onReceivedError(view: WebView, errorCode: Int, description: String?, failingUrl: String?) {
+                super.onReceivedError(view, errorCode, description, failingUrl)
+                val authority = runCatching { Uri.parse(failingUrl).authority }.getOrNull()
+                if (!fallbackTried && authority in allowedAuthorities && authority == PRIMARY_HOST && FALLBACK_HOST.isNotBlank() && FALLBACK_HOST != PRIMARY_HOST) {
+                    loadHome(FALLBACK_HOME, fallback = true)
+                }
             }
         }
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -226,14 +264,14 @@ class ScActivity : ComponentActivity() {
         if (savedInstanceState != null) web.restoreState(savedInstanceState)
         else if (account.needsAutoRegister(hasSubNow())) {
             // 1.1.0: первый запуск без ключа — аккаунт и пробный день создаются сами, кабинет откроется уже с входом
-            val start = dlUrl(intent) ?: HOME
+            val start = dlUrl(intent) ?: PRIMARY_HOME
             lifecycleScope.launch(Dispatchers.IO) {
                 runCatching {
                     if (account.autoRegister()) applyActiveLink(account.last)
                 }
-                runOnUiThread { web.loadUrl(start) }
+                runOnUiThread { loadHome(start) }
             }
-        } else web.loadUrl(dlUrl(intent) ?: HOME)
+        } else loadHome(dlUrl(intent) ?: PRIMARY_HOME)
         lifecycleScope.launch(Dispatchers.IO) { ensureGeoFiles() }
         // apk_v4: скорость в уведомлении включена по умолчанию (один раз)
         lifecycleScope.launch(Dispatchers.IO) { syncDirectApps(firstRun = !prefs.getBoolean("defaults_v6", false)) }
@@ -268,6 +306,7 @@ class ScActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        homeHandler.removeCallbacksAndMessages(null)
         runCatching { unregisterReceiver(stateReceiver) }
         runCatching { MessageHelper.sendMsg2Service(this, AppConfig.MSG_UNREGISTER_CLIENT, "") }
         super.onDestroy()
@@ -615,17 +654,35 @@ class ScActivity : ComponentActivity() {
         if (d.scheme != "siberiaconnect" || d.host != "login") return null
         val c = d.getQueryParameter("c") ?: return null
         if (!Regex("^[A-Za-z0-9_-]{8,64}$").matches(c)) return null
-        return "$HOME&dl=$c"
+        return "$PRIMARY_HOME&dl=$c"
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         val u = dlUrl(intent) ?: return
-        if (::web.isInitialized) web.loadUrl(u)
+        if (::web.isInitialized) loadHome(u)
     }
 
     inner class Bridge {
+        @JavascriptInterface
+        fun apiFallback(): String =
+            if (FALLBACK_HOST.isBlank() || FALLBACK_HOST == PRIMARY_HOST) "" else "https://$FALLBACK_HOST/app/"
+
+        @JavascriptInterface
+        fun pasteText(): String {
+            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            return runCatching {
+                cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this@ScActivity)?.toString().orEmpty()
+            }.getOrDefault("")
+        }
+
+        @JavascriptInterface
+        fun copyText(text: String) {
+            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            cm.setPrimaryClip(ClipData.newPlainText("Siberia Connect", text))
+        }
+
         @JavascriptInterface
         fun version(): String = BuildConfig.VERSION_NAME
 
