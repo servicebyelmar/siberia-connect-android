@@ -115,6 +115,14 @@ class ScActivity : ComponentActivity() {
         )
 
         /** apk_v6: маршрутизация — российские сайты и адреса напрямую (в браузере и везде). */
+        /** smart_v1: без «российские сайты напрямую» — только служебные правила (локальная сеть, торренты, QUIC) */
+        const val BASE_ROUTING = """[
+ {"remarks":"Bypass bittorrent","outboundTag":"direct","protocol":["bittorrent"]},
+ {"remarks":"Block udp443","outboundTag":"block","port":"443","network":"udp"},
+ {"remarks":"Direct LAN IP","outboundTag":"direct","ip":["geoip:private"]},
+ {"remarks":"Direct LAN domains","outboundTag":"direct","domain":["geosite:private"]}
+]"""
+
         const val RU_ROUTING = """[
  {"remarks":"Bypass bittorrent","outboundTag":"direct","protocol":["bittorrent"]},
  {"remarks":"Block udp443","outboundTag":"block","port":"443","network":"udp"},
@@ -168,6 +176,9 @@ class ScActivity : ComponentActivity() {
 
     @Volatile
     private var preparing = false
+
+    @Volatile
+    private var pinging = false
     private var lastFailover = 0L
 
     @Volatile
@@ -468,10 +479,8 @@ class ScActivity : ComponentActivity() {
      * «Северное Сияние»: реальная проверка всех серверов подписки через ядро Xray (запрос через туннель).
      * Побеждает самый быстрый; при почти равной скорости — тот, что выше в подписке (сервер ставит первыми свободные ноды).
      */
-    private suspend fun pickAuto() {
-        val sub = ourSub() ?: return
-        val list = MmkvManager.decodeServerList(sub.guid)
-        if (list.size < 2) return
+    /** smart_v1: реальная задержка до каждого сервера через ядро Xray, параллельно, не дольше 10 с. */
+    private suspend fun measureAll(list: List<String>): Map<Int, Long> {
         runCatching { CoreNativeManager.initCoreEnv(applicationContext) }
         val url = SettingsManager.getDelayTestUrl()
         val res = ConcurrentHashMap<Int, Long>()
@@ -484,6 +493,14 @@ class ScActivity : ComponentActivity() {
         withTimeoutOrNull(10_000L) { jobs.awaitAll() }
         pings.clear()
         list.forEachIndexed { i, g -> pings[g] = res[i] ?: -1L }
+        return res
+    }
+
+    private suspend fun pickAuto() {
+        val sub = ourSub() ?: return
+        val list = MmkvManager.decodeServerList(sub.guid)
+        if (list.size < 2) return
+        val res = measureAll(list)
         val ok = list.indices.filter { (res[it] ?: -1L) > 0L }
         if (ok.isEmpty()) return   // никто не ответил — скорее всего, нет интернета; оставляем прежний сервер
         val best = ok.minOf { res[it]!! }
@@ -764,7 +781,7 @@ class ScActivity : ComponentActivity() {
                 // 1.1.0: «Северное Сияние (Авто)» первым пунктом — кабинет показывает его как обычный сервер
                 val activeName = if (running && sel != null) MmkvManager.decodeServerConfig(sel)?.remarks else null
                 arr.put(JSONObject().put("guid", "auto").put("auto", true).put("selected", auto)
-                    .put("name", if (auto && activeName != null) "⚡️ Северное Сияние → $activeName" else "⚡️ Северное Сияние (Авто)"))
+                    .put("name", if (auto && activeName != null) "⚡ Автовыбор → $activeName" else "⚡ Автовыбор · самый быстрый сервер"))
             }
             list.forEach { g ->
                 val p = MmkvManager.decodeServerConfig(g) ?: return@forEach
@@ -795,6 +812,34 @@ class ScActivity : ComponentActivity() {
         /** 1.1.0 */
         @JavascriptInterface
         fun autoMode(): Boolean = this@ScActivity.autoMode()
+
+        /** smart_v1: замерить задержку до всех серверов сейчас (без подключения) → событие {type:"pings"} */
+        @JavascriptInterface
+        fun pingAll() {
+            if (pinging) return
+            pinging = true
+            lifecycleScope.launch(Dispatchers.IO) {
+                runCatching {
+                    val list = ourSub()?.let { MmkvManager.decodeServerList(it.guid) }.orEmpty()
+                    if (list.isNotEmpty()) measureAll(list) else emptyMap()
+                }
+                pinging = false
+                emit(JSONObject().put("type", "pings"))
+            }
+        }
+
+        /** smart_v1: российские сайты и адреса напрямую, мимо VPN (по умолчанию включено) */
+        @JavascriptInterface
+        fun ruDirect(): Boolean = prefs.getBoolean("ru_direct", true)
+
+        @JavascriptInterface
+        fun setRuDirect(on: Boolean) {
+            prefs.edit().putBoolean("ru_direct", on).apply()
+            lifecycleScope.launch(Dispatchers.IO) {
+                runCatching { SettingsManager.resetRoutingRulesets(if (on) RU_ROUTING else BASE_ROUTING) }
+                if (running) runOnUiThread { LauncherManager.restartService(this@ScActivity) }
+            }
+        }
 
         @JavascriptInterface
         fun setAutoMode(on: Boolean) {
