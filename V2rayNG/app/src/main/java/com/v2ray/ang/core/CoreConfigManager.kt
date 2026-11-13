@@ -834,6 +834,9 @@ object CoreConfigManager {
         hosts[AppConfig.DNS_SB_DOMAIN] = AppConfig.DNS_SB_ADDRESSES
         hosts[AppConfig.DNS_YANDEX_DOMAIN] = AppConfig.DNS_YANDEX_ADDRESSES
 
+        // Siberia Connect 1.2.3: адреса наших серверов через DoH, а не через DNS провайдера
+        runCatching { hosts.putAll(com.v2ray.ang.handler.ScDns.ourHosts()) }
+
         //User DNS hosts
         val userHosts = MmkvManager.decodeSettingsString(AppConfig.PREF_DNS_HOSTS)
         if (userHosts.isNotNullEmpty()) {

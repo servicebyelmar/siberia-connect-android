@@ -13,8 +13,8 @@ android {
         applicationId = "com.siberiaconnect.vpn"
         minSdk = 24
         targetSdk = 37
-        versionCode = 782
-        versionName = "1.2.2"
+        versionCode = 783
+        versionName = "1.2.3"
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
         splits {

@@ -22,6 +22,7 @@ import com.v2ray.ang.extension.delay
 import com.v2ray.ang.extension.isNotNullEmpty
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.NotificationManager
+import com.v2ray.ang.handler.ScWatchdog
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.handler.SpeedtestManager
 import com.v2ray.ang.helper.MessageHelper
@@ -52,6 +53,7 @@ object CoreServiceManager {
     private var processFinder: XrayProcessFinder? = null
     private var browserDialer: IDialerService? = null
     private var networkMonitor: NetworkMonitor? = null
+    private val scWatchdog = ScWatchdog { reloadCore() }     // Siberia Connect 1.2.3
     private val connectionTestScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Volatile
@@ -123,6 +125,7 @@ object CoreServiceManager {
         currentVpnInterface = vpnInterface
         launchCore(service, vpnInterface)
         startNetworkMonitor(service)
+        scWatchdog.start()
     }
 
     @Throws(Exception::class)
@@ -193,6 +196,7 @@ object CoreServiceManager {
         connectionTestScope.coroutineContext.cancelChildren()
         val service = getService() ?: return false
 
+        scWatchdog.stop()
         networkMonitor?.unregister()
         networkMonitor = null
         currentVpnInterface = null
@@ -239,7 +243,7 @@ object CoreServiceManager {
         networkMonitor = NetworkMonitor(
             connectivity = connectivity,
             onUnderlyingNetworksChanged = { networks -> serviceControl?.get()?.setUnderlyingNetworks(networks) },
-            onHandover = { reloadCore() },
+            onHandover = { val ok = reloadCore(); scWatchdog.kick(); ok },
         ).also { it.register() }
     }
 
