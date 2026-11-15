@@ -68,6 +68,18 @@
             android:exported="false" />
 
         <activity
+            android:name=".ui.sc.ScTvActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|smallestScreenSize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".ui.sc.ScActivity"
             android:exported="true"
             android:launchMode="singleTask"
