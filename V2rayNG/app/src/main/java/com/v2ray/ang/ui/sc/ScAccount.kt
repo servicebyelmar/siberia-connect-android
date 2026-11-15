@@ -81,9 +81,55 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
         }
     }
 
+    /** Итог последнего запроса: сеть/5xx/таймаут (NETWORK) никогда не ведут к удалению ключа. */
+    enum class Outcome { OK, NETWORK, REVOKED, LOCKED, REBIND }
+
+    @Volatile
+    var outcome: Outcome = Outcome.OK
+        private set
+
+    /** Явный отказ сервера: 401/403, DEVICE_LOCKED, Key Expired. Всё остальное — временная ошибка. */
+    private fun classify(code: Int, r: JSONObject?): Outcome {
+        val c = r?.optString("code").orEmpty()
+        val e = r?.optString("error").orEmpty()
+        return when {
+            c == "DEVICE_LOCKED" -> Outcome.LOCKED
+            c == "REBIND_AVAILABLE" -> Outcome.REBIND
+            code == 401 || code == 403 -> Outcome.REVOKED
+            c.equals("KEY_EXPIRED", true) || e.contains("Key Expired", true) -> Outcome.REVOKED
+            code in 200..299 -> Outcome.OK
+            else -> Outcome.NETWORK     // 0 (таймаут/нет сети/смена Wi-Fi↔4G), 5xx, 429, прочие 4xx
+        }
+    }
+
+    /** Блокировка по привязке устройства: запоминаем до какого момента (retry_after — секунды). */
+    private fun rememberLock(r: JSONObject?) {
+        val sec = r?.optLong("retry_after", 0L) ?: 0L
+        val at = r?.optLong("rebind_available_at", 0L) ?: 0L
+        val until = when {
+            sec > 0 -> System.currentTimeMillis() + sec * 1000
+            at > 0 -> at * 1000
+            else -> System.currentTimeMillis() + 72L * 3600_000
+        }
+        prefs.edit().putLong(ScSecureStore.K_LOCK_UNTIL, until)
+            .putString(ScSecureStore.K_LOCK_NAME, r?.optString("bound_device_name").orEmpty()).apply()
+    }
+
+    private fun rememberRebind(r: JSONObject?) {
+        prefs.edit().putString(ScSecureStore.K_REBIND_NAME, r?.optString("bound_device_name").orEmpty().ifEmpty { "-" }).apply()
+    }
+
+    /** Токен и ключ стираем только при 401/403/Key Expired (не при DEVICE_LOCKED); сам список серверов убирает вызывающий. */
+    private fun wipeCredentials() {
+        prefs.edit().putString(K_TOKEN, "").remove(ScSecureStore.K_KEY).apply()
+        last = null
+    }
+
     /** Вход по секрету установки: новый аккаунт (первый запуск) или тот же/связанный. true — токен получен. */
     fun autoRegister(): Boolean {
         val (code, r) = post("device", JSONObject().put("secret", secret()).put("did", did()).put("platform", "android"))
+        outcome = classify(code, r)
+        if (outcome == Outcome.LOCKED) rememberLock(r)
         if (code != 200 || r == null || !r.optBoolean("ok")) {
             // known_device: телефон уже был в Telegram-аккаунте — гостя не создаём, кабинет покажет вход
             if (code == 429 || code == 400 || r?.optBoolean("known_device") == true) prefs.edit().putBoolean(K_REG_DONE, true).apply()
@@ -107,15 +153,32 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
 
     /** Единый статус. null — проверить не удалось (нет входа или связи): подключаемся как раньше. */
     fun status(): JSONObject? {
+        outcome = Outcome.OK
         if (token.isEmpty()) return null
-        val body = JSONObject().put("did", did()).put("platform", "android")
+        val body = JSONObject().put("did", did()).put("platform", "android").put("device_name", ScSecureStore.deviceName())
         val (code, r) = post("status", body, token)
         val fromInstall = prefs.getBoolean(K_FROM_INSTALL, false)
-        if (code == 401) {
-            // сессия истекла или аккаунт связали с Telegram — заходим заново по секрету установки (только «своим» входом)
-            if (fromInstall && autoRegister()) return last
-            prefs.edit().putString(K_TOKEN, "").apply()
-            return null
+        val res = classify(code, r)
+        outcome = res
+        when (res) {
+            Outcome.NETWORK -> return null          // таймаут / 5xx / смена сети: ключ и токен остаются
+            Outcome.LOCKED -> {      // DEVICE_LOCKED: ключ не отозван, ничего не стираем
+                rememberLock(r)
+                return null
+            }
+            Outcome.REBIND -> {
+                rememberRebind(r)
+                return null
+            }
+            Outcome.REVOKED -> {
+                // сессия истекла или аккаунт связали с Telegram — заходим заново по секрету установки (только «своим» входом)
+                if (fromInstall && autoRegister()) { outcome = Outcome.OK; return last }
+                if (outcome == Outcome.LOCKED || outcome == Outcome.REBIND) return null
+                outcome = Outcome.REVOKED           // автовход не вышел, но исходный отказ (401/403) был явным
+                wipeCredentials()
+                return null
+            }
+            Outcome.OK -> Unit
         }
         val st = if (code == 200) r?.optJSONObject("status") else null
         if (st == null) return null
@@ -123,6 +186,77 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
         last = st
         rememberKind(st)
         return st
+    }
+
+    sealed class Activation {
+        data class Ok(val link: String, val days: Int) : Activation()
+        /** Ключ привязан к другому устройству; [untilMs] — когда можно перепривязать. */
+        data class Locked(val deviceName: String, val untilMs: Long) : Activation()
+        /** Прошло 72 ч: можно перепривязать ключ на это устройство. */
+        data class Rebind(val deviceName: String) : Activation()
+        data class Failed(val message: String, val retryable: Boolean) : Activation()
+    }
+
+    /** Код активации (30 минут): POST /activate. Токен и ключ сохраняются только при успехе. */
+    fun activate(rawCode: String): Activation {
+        val code = rawCode.trim().uppercase()
+        val body = JSONObject().put("code", code).put("device_id", did())
+            .put("device_name", ScSecureStore.deviceName()).put("platform", "android")
+        val (http, r) = post("activate", body)
+        if (http == 0 || http >= 500) return Activation.Failed("Нет связи с сервером. Проверь интернет и повтори", true)
+        if (r == null) return Activation.Failed("Неожиданный ответ сервера", true)
+        if (r.optString("code") == "DEVICE_LOCKED") {
+            rememberLock(r)
+            return Activation.Locked(prefs.getString(ScSecureStore.K_LOCK_NAME, "").orEmpty(), prefs.getLong(ScSecureStore.K_LOCK_UNTIL, 0L))
+        }
+        if (r.optString("code") == "REBIND_AVAILABLE") {
+            rememberRebind(r)
+            return Activation.Rebind(r.optString("bound_device_name"))
+        }
+        val link = r.optString("link")
+        val tok = r.optString("token")
+        if (http == 200 && r.optBoolean("ok") && link.isNotEmpty() && tok.isNotEmpty()) {
+            prefs.edit().putString(K_TOKEN, tok).putString(ScSecureStore.K_KEY, link)
+                .putBoolean(K_FROM_INSTALL, false).putBoolean(K_REG_DONE, true).putBoolean(K_GUEST, false)
+                .remove(ScSecureStore.K_LOCK_UNTIL).remove(ScSecureStore.K_LOCK_NAME).apply()
+            return Activation.Ok(link, r.optInt("days"))
+        }
+        return Activation.Failed(r.optString("error").ifEmpty { "Не удалось активировать код" }, http == 429)
+    }
+
+    /** Перепривязка ключа на это устройство после 72 ч (нужен вход: токен). */
+    fun rebind(): Activation {
+        if (token.isEmpty()) return Activation.Failed("Сначала введи код активации", false)
+        val body = JSONObject().put("device_id", did()).put("device_name", ScSecureStore.deviceName())
+            .put("platform", "android").put("confirm", true)
+        val (http, r) = post("rebind", body, token)
+        if (http == 0 || http >= 500) return Activation.Failed("Нет связи с сервером. Проверь интернет и повтори", true)
+        if (r?.optString("code") == "DEVICE_LOCKED") {
+            rememberLock(r)
+            return Activation.Locked(prefs.getString(ScSecureStore.K_LOCK_NAME, "").orEmpty(), prefs.getLong(ScSecureStore.K_LOCK_UNTIL, 0L))
+        }
+        val link = r?.optString("link").orEmpty()
+        if (http == 200 && r?.optBoolean("ok") == true && link.isNotEmpty()) {
+            prefs.edit().putString(ScSecureStore.K_KEY, link).remove(ScSecureStore.K_REBIND_NAME)
+                .remove(ScSecureStore.K_LOCK_UNTIL).remove(ScSecureStore.K_LOCK_NAME).apply()
+            return Activation.Ok(link, 0)
+        }
+        return Activation.Failed(r?.optString("error").orEmpty().ifEmpty { "Не удалось перепривязать" }, false)
+    }
+
+    data class Node(val key: String, val name: String, val available: Boolean, val load: Double, val rank: Int)
+    data class Rank(val nodes: List<Node>, val best: String, val connectTimeoutMs: Long)
+
+    /** Рейтинг нод с сервера. null — недоступно (сеть/5xx/нет входа): вызывающий проверит серверы пингом. */
+    fun nodesRank(): Rank? {
+        if (token.isEmpty()) return null
+        val (code, r) = post("nodes/rank", JSONObject(), token)
+        if (code != 200 || r == null || !r.optBoolean("ok")) return null
+        val arr = r.optJSONArray("nodes") ?: return null
+        val nodes = (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.map {
+            Node(it.optString("key"), it.optString("name"), it.optBoolean("available", true), it.optDouble("load", 0.0), it.optInt("rank", 99))
+        }
+        return Rank(nodes, r.optString("best"), r.optLong("connect_timeout_ms", 6000L).coerceIn(3000L, 15000L))
     }
 
     /** Код связки с Telegram: (код, ссылка) или (null, текст ошибки). */

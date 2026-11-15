@@ -64,6 +64,10 @@
         </service>
 
         <activity
+            android:name=".ui.sc.ScActivationActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.sc.ScActivity"
             android:exported="true"
             android:launchMode="singleTask"

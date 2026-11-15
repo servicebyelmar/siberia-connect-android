@@ -170,6 +170,7 @@ dependencies {
     // AndroidX Core Libraries
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
+    implementation("androidx.security:security-crypto:1.0.0")
 
     // Compose Libraries
     implementation(platform(libs.androidx.compose.bom))

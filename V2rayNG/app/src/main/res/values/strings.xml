@@ -566,4 +566,19 @@
     <string name="sub_info_traffic" translatable="false">%1$s / %2$s</string>
     <string name="sub_info_unlimited">Unlimited</string>
 
+    <string name="sc_act_title">Activate access</string>
+    <string name="sc_act_hint">Enter the activation code from the website or Telegram bot. The code is valid for 30 minutes.</string>
+    <string name="sc_act_code_label">Activation code</string>
+    <string name="sc_act_button">Activate</string>
+    <string name="sc_act_checking">Checking…</string>
+    <string name="sc_act_network">No connection to the server. Check your internet and try again.</string>
+    <string name="sc_lock_title">Key is bound to another device</string>
+    <string name="sc_lock_body">This key is bound to the device “%1$s”. It can be moved to this device after the timer ends.</string>
+    <string name="sc_lock_body_generic">This key is bound to another device. It can be moved to this device after the timer ends.</string>
+    <string name="sc_lock_timer">Time left: %1$s</string>
+    <string name="sc_lock_hint">The key is bound for 72 hours after activation. You can also use another activation code.</string>
+    <string name="sc_rebind_title">Move key to this device</string>
+    <string name="sc_rebind_body">72 hours have passed. The key is bound to “%1$s”. Moving it will disable the key on that device.</string>
+    <string name="sc_rebind_body_generic">72 hours have passed. Moving the key will disable it on the previous device.</string>
+    <string name="sc_rebind_button">Rebind to this device</string>
 </resources>

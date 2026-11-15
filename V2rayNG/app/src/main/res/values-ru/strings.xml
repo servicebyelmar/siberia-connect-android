@@ -569,4 +569,19 @@
     <string name="sub_info_open_page">Открыть страницу подписки</string>
     <string name="sub_info_unlimited">Без ограничений</string>
 
+    <string name="sc_act_title">Активация доступа</string>
+    <string name="sc_act_hint">Введите код активации с сайта или из Telegram-бота. Код действует 30 минут.</string>
+    <string name="sc_act_code_label">Код активации</string>
+    <string name="sc_act_button">Активировать</string>
+    <string name="sc_act_checking">Проверяем…</string>
+    <string name="sc_act_network">Нет связи с сервером. Проверьте интернет и повторите.</string>
+    <string name="sc_lock_title">Ключ привязан к другому устройству</string>
+    <string name="sc_lock_body">Этот ключ привязан к устройству «%1$s». Перенести его на это устройство можно, когда закончится таймер.</string>
+    <string name="sc_lock_body_generic">Этот ключ привязан к другому устройству. Перенести его сюда можно, когда закончится таймер.</string>
+    <string name="sc_lock_timer">Осталось: %1$s</string>
+    <string name="sc_lock_hint">Ключ привязывается на 72 часа после активации. Можно также ввести другой код активации.</string>
+    <string name="sc_rebind_title">Перенос ключа на это устройство</string>
+    <string name="sc_rebind_body">Прошло 72 часа. Ключ привязан к «%1$s». После переноса там он перестанет работать.</string>
+    <string name="sc_rebind_body_generic">Прошло 72 часа. После переноса ключ перестанет работать на прежнем устройстве.</string>
+    <string name="sc_rebind_button">Перепривязать на это устройство</string>
 </resources>
