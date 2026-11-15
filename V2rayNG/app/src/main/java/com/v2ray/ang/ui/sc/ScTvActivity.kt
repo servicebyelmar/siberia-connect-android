@@ -61,7 +61,7 @@ class ScTvActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         buildTvLayout()
         ContextCompat.registerReceiver(this, stateReceiver, IntentFilter(AppConfig.BROADCAST_ACTION_ACTIVITY), ContextCompat.RECEIVER_NOT_EXPORTED)
-        running = Utils.isServiceRun(this)
+        runCatching { LauncherManager.sendMsgToService(this, AppConfig.MSG_REGISTER_CLIENT, "") }
         refreshUi()
         bootstrapAccountAndSub()
         checkAppUpdate()
@@ -69,7 +69,7 @@ class ScTvActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        running = Utils.isServiceRun(this)
+        runCatching { LauncherManager.sendMsgToService(this, AppConfig.MSG_REGISTER_CLIENT, "") }
         refreshUi()
         updFile?.let { if (it.exists() && updCanInstall()) installApk(it) }
     }
@@ -247,7 +247,19 @@ class ScTvActivity : ComponentActivity() {
         MmkvManager.setSelectServer(list[pick])
     }
 
-    private fun startCore() { prefs.edit().remove("since").apply(); LauncherManager.startService(this) }
+    private fun startCore() {
+        prefs.edit().remove("since").apply()
+        lifecycleScope.launch(Dispatchers.IO) {
+            runCatching {
+                val dir = Utils.userAssetPath(this@ScTvActivity)
+                for (name in listOf("geosite.dat", "geoip.dat")) {
+                    val f = File(dir, name)
+                    if (!f.exists() || f.length() == 0L) assets.open(name).use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+                }
+            }
+            runOnUiThread { LauncherManager.startService(this@ScTvActivity) }
+        }
+    }
 
     private fun toggleServerList() {
         if (serverListContainer.visibility == View.VISIBLE) { serverListContainer.visibility = View.GONE; return }
