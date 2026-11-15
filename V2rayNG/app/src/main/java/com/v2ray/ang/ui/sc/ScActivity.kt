@@ -169,7 +169,36 @@ class ScActivity : ComponentActivity() {
     }
 
     /** 1.1.0: вход без Telegram, единый статус, связка с Telegram (сервер: id_v1) */
-    private val account by lazy { ScAccount(prefs) { devId() } }
+    /** Токен, секрет установки, VPN-ключ и блокировка — только в зашифрованном хранилище. */
+    private val secure by lazy { ScSecureStore.prefs(this) }
+    private val account by lazy { ScAccount(secure) { devId() } }
+
+    private val activation =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+            val link = r.data?.getStringExtra(ScActivationActivity.EXTRA_LINK)
+            if (r.resultCode == RESULT_OK && !link.isNullOrEmpty()) {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    runCatching { applySubAny(link) }
+                    runOnUiThread { if (::web.isInitialized) web.reload() }
+                    connectFlow()
+                }
+            }
+        }
+
+    private fun openActivation() = runOnUiThread { activation.launch(ScActivationActivity.intent(this)) }
+
+    /** Явный отказ сервера (401/403/DEVICE_LOCKED/Key Expired): убираем локальный ключ и серверы. */
+    private fun dropLocalKey() {
+        ourSub()?.let { runCatching { MmkvManager.removeSubscription(it.guid) } }
+        ScSecureStore.clearKey(this)
+    }
+
+    /** Ключ пропал из списка (сбой хранилища), но сервер его не отзывал — ставим сохранённый. */
+    private fun restoreKeyIfMissing() {
+        if (hasSubNow()) return
+        val k = ScSecureStore.key(this)
+        if (k.isNotEmpty() && ScLock.isAllowedSubUrl(k)) applySubAny(k)
+    }
 
     /** 1.1.0: «Северное Сияние (Авто)» — задержка последней проверки по каждому серверу, мс (-1 — не ответил) */
     private val pings = ConcurrentHashMap<String, Long>()
@@ -287,6 +316,10 @@ class ScActivity : ComponentActivity() {
                 runOnUiThread { loadHome(start) }
             }
         } else loadHome(dlUrl(intent) ?: PRIMARY_HOME)
+        // ключ мог пропасть из списка при сбое хранилища — возвращаем сохранённый (сеть тут ни при чём)
+        lifecycleScope.launch(Dispatchers.IO) { runCatching { restoreKeyIfMissing() } }
+        // идёт 72-часовая блокировка — сразу показываем таймер
+        if (ScSecureStore.lockUntil(this) > System.currentTimeMillis() && !hasSubNow()) openActivation()
         lifecycleScope.launch(Dispatchers.IO) { ensureGeoFiles() }
         // apk_v4: скорость в уведомлении включена по умолчанию (один раз)
         lifecycleScope.launch(Dispatchers.IO) { syncDirectApps(firstRun = !prefs.getBoolean("defaults_v6", false)) }
@@ -344,9 +377,7 @@ class ScActivity : ComponentActivity() {
     }
 
     private fun devId(): String {
-        val raw = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "none"
-        val md = MessageDigest.getInstance("SHA-256").digest("sc:$raw:${BuildConfig.APPLICATION_ID}".toByteArray())
-        return "and-" + md.take(12).joinToString("") { "%02x".format(it) }
+        return ScSecureStore.deviceUuid(this)
     }
 
     private fun ourSub(): SubscriptionCache? =
@@ -389,7 +420,10 @@ class ScActivity : ComponentActivity() {
             val r = runCatching { applySub(u) }.getOrElse {
                 JSONObject().put("type", "sub").put("ok", false).put("error", it.message ?: "Ошибка")
             }
-            if (r.optBoolean("ok") && !placeholderOnly()) return r
+            if (r.optBoolean("ok") && !placeholderOnly()) {
+                ScSecureStore.saveKey(this, u)
+                return r
+            }
             if (r.optBoolean("ok")) r.put("ok", false).put("error", "Сервер не принял ключ — проверь лимит устройств")
             last = r
         }
@@ -431,12 +465,12 @@ class ScActivity : ComponentActivity() {
             val nat = account.token
             if (pageTok.isNotEmpty()) {
                 if (pageTok != nat) account.adopt(pageTok)
-                prefs.edit().putString("tok_seen", pageTok).apply()
+                secure.edit().putString("tok_seen", pageTok).apply()
             } else if (nat.isNotEmpty()) {
-                if (prefs.getString("tok_seen", "") == nat) {
+                if (secure.getString("tok_seen", "") == nat) {
                     account.adopt("")   // кабинет знал этот вход и вышел — выходим и мы
                 } else {
-                    prefs.edit().putString("tok_seen", nat).apply()
+                    secure.edit().putString("tok_seen", nat).apply()
                     val js = JSONObject.quote(nat)
                     web.evaluateJavascript("try{localStorage.setItem('sc_tok',$js);location.reload()}catch(e){}", null)
                 }
@@ -453,7 +487,20 @@ class ScActivity : ComponentActivity() {
             var go = true
             try {
                 val st = runCatching { account.status() }.getOrNull()
-                if (st != null) {
+                // Сеть/5xx/таймаут (Outcome.NETWORK) ключ не трогают — подключаемся с тем, что есть.
+                val out = account.outcome
+                if (out == ScAccount.Outcome.LOCKED || out == ScAccount.Outcome.REVOKED || out == ScAccount.Outcome.REBIND) {
+                    go = false
+                    if (out == ScAccount.Outcome.REVOKED) dropLocalKey()      // DEVICE_LOCKED/REBIND: ключ не отозван, не трогаем
+                    val msg = if (out != ScAccount.Outcome.REVOKED) "Ключ привязан к другому устройству" else "Ключ больше не действует — введи код активации"
+                    emit(JSONObject().put("type", "account").put("state", if (out != ScAccount.Outcome.REVOKED) "device_locked" else "no_account").put("message", msg))
+                    emit(JSONObject().put("type", "state").put("state", "error").put("error", msg))
+                    openActivation()      // при блокировке экран сам покажет таймер
+                } else if (st == null && account.token.isEmpty() && !hasSubNow()) {
+                    go = false
+                    emit(JSONObject().put("type", "state").put("state", "off"))
+                    openActivation()
+                } else if (st != null) {
                     val state = st.optString("state")
                     if (state in ScAccount.BAD_STATES) {
                         go = false
@@ -467,6 +514,7 @@ class ScActivity : ComponentActivity() {
                         runCatching { applyActiveLink(st) }
                     }
                 }
+                if (go && !hasSubNow()) runCatching { restoreKeyIfMissing() }
                 if (go && autoMode()) runCatching { pickAuto() }
             } finally {
                 preparing = false
@@ -496,17 +544,74 @@ class ScActivity : ComponentActivity() {
         return res
     }
 
+    /** Нода сервера из рейтинга /nodes/rank: ищем по ключу/имени в названии профиля. null — не опознали. */
+    private fun nodeOf(rank: ScAccount.Rank?, guid: String): ScAccount.Node? {
+        val title = MmkvManager.decodeServerConfig(guid)?.remarks.orEmpty()
+        if (rank == null || title.isEmpty()) return null
+        return rank.nodes.firstOrNull { (it.name.isNotEmpty() && title.contains(it.name, true)) || (it.key.isNotEmpty() && title.contains(it.key, true)) }
+    }
+
+    @Volatile
+    private var connectTimeoutMs = 6000L
+
+    /** Серверы, уже опробованные в текущей попытке подключения (для автопереключения). */
+    private val triedServers = HashSet<String>()
+
     private suspend fun pickAuto() {
         val sub = ourSub() ?: return
         val list = MmkvManager.decodeServerList(sub.guid)
         if (list.size < 2) return
+        // 1) рейтинг сервера (нагрузка/доступность); нет ответа — просто пинг-проба ниже
+        val rank = runCatching { account.nodesRank() }.getOrNull()
+        rank?.let { connectTimeoutMs = it.connectTimeoutMs }
+        // 2) пинг-проба через ядро; перегруженные и недоступные ноды отсеиваем, если остались другие
         val res = measureAll(list)
-        val ok = list.indices.filter { (res[it] ?: -1L) > 0L }
+        var ok = list.indices.filter { (res[it] ?: -1L) > 0L }
         if (ok.isEmpty()) return   // никто не ответил — скорее всего, нет интернета; оставляем прежний сервер
+        ok.filter { nodeOf(rank, list[it])?.available != false }.takeIf { it.isNotEmpty() }?.let { ok = it }
         val best = ok.minOf { res[it]!! }
         val slack = maxOf(20L, best * 15 / 100)
-        val pick = ok.filter { res[it]!! <= best + slack }.minOrNull() ?: return
+        val pick = ok.filter { res[it]!! <= best + slack }
+            .minWithOrNull(compareBy({ nodeOf(rank, list[it])?.rank ?: 99 }, { it })) ?: return
         MmkvManager.setSelectServer(list[pick])
+    }
+
+    private fun measureOne(guid: String): Long {
+        runCatching { CoreNativeManager.initCoreEnv(applicationContext) }
+        val cfg = CoreConfigManager.getV2rayConfig4Speedtest(this, guid)
+        return if (cfg.status) CoreNativeManager.measureOutboundDelay(cfg.content, SettingsManager.getDelayTestUrl()) else -1L
+    }
+
+    /**
+     * Таймаут коннекта: ядро не поднялось за connect_timeout_ms или сервер не отвечает через туннель —
+     * переходим на следующий по рейтингу сервер (по одному разу каждый), не трогая ключ и токен.
+     */
+    private fun watchConnect() {
+        if (!autoMode()) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val limit = connectTimeoutMs
+            val t0 = System.currentTimeMillis()
+            while (!running && System.currentTimeMillis() - t0 < limit) kotlinx.coroutines.delay(300)
+            val sel = MmkvManager.getSelectServer() ?: return@launch
+            val alive = running && (withTimeoutOrNull(limit) { measureOne(sel) } ?: -1L) > 0L
+            if (alive) { triedServers.clear(); return@launch }
+            failoverNext(sel)
+        }
+    }
+
+    private suspend fun failoverNext(failed: String) {
+        val sub = ourSub() ?: return
+        triedServers.add(failed)
+        val list = MmkvManager.decodeServerList(sub.guid).filter { it !in triedServers }
+        if (list.isEmpty()) { triedServers.clear(); return }       // все опробованы — оставляем как есть
+        val rank = runCatching { account.nodesRank() }.getOrNull()
+        val next = list.withIndex().minWithOrNull(
+            compareBy({ if (nodeOf(rank, it.value)?.available == false) 1 else 0 }, { nodeOf(rank, it.value)?.rank ?: 99 }, { it.index })
+        )?.value ?: return
+        MmkvManager.setSelectServer(next)
+        emit(JSONObject().put("type", "toast").put("text", "Сервер не отвечает — переключаюсь на резервный"))
+        runOnUiThread { LauncherManager.restartServiceOrStart(this) { LauncherManager.startService(this) } }
+        watchConnect()
     }
 
     private fun requestStart() {
@@ -528,6 +633,8 @@ class ScActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             ensureGeoFiles()
             runOnUiThread { LauncherManager.startService(this@ScActivity) }
+            triedServers.clear()
+            watchConnect()
         }
     }
 
@@ -715,6 +822,11 @@ class ScActivity : ComponentActivity() {
     }
 
     inner class Bridge {
+        /** Кабинет может открыть экран ввода кода активации / блокировки с таймером. */
+        @JavascriptInterface
+        fun openActivation() = this@ScActivity.openActivation()
+
+
         @JavascriptInterface
         fun apiFallback(): String =
             if (FALLBACK_HOST.isBlank() || FALLBACK_HOST == PRIMARY_HOST) "" else "https://$FALLBACK_HOST/app/"
