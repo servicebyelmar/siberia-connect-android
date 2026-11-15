@@ -45,7 +45,7 @@ class ScTvActivity : ComponentActivity() {
     private lateinit var serverListContainer: LinearLayout
 
     private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
-        if (res.resultCode == RESULT_OK) startCore() else { busy = false; refreshUi() }
+        if (res.resultCode == RESULT_OK) launchCore() else { busy = false; refreshUi() }
     }
 
     private val stateReceiver = object : BroadcastReceiver() {
