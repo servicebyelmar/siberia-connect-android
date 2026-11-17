@@ -176,10 +176,11 @@ class ScActivity : ComponentActivity() {
     private val activation =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
             val link = r.data?.getStringExtra(ScActivationActivity.EXTRA_LINK)
-            if (r.resultCode == RESULT_OK && !link.isNullOrEmpty()) {
+            // 1.2.6: вход выполнен и без ссылки (подписка не активна) — статус покажет причину
+            if (r.resultCode == RESULT_OK) {
                 lifecycleScope.launch(Dispatchers.IO) {
-                    runCatching { applySubAny(link) }
-                    runOnUiThread { if (::web.isInitialized) web.reload() }
+                    if (!link.isNullOrEmpty()) runCatching { applySubAny(link) }
+                    runOnUiThread { if (::web.isInitialized) web.reload() }   // onPageFinished → syncToken отдаст странице НОВЫЙ вход
                     connectFlow()
                 }
             }
@@ -463,17 +464,58 @@ class ScActivity : ComponentActivity() {
         web.evaluateJavascript("(function(){try{return localStorage.getItem('sc_tok')||''}catch(e){return ''}})()") { raw ->
             val pageTok = runCatching { org.json.JSONTokener(raw ?: "").nextValue() as? String }.getOrNull().orEmpty()
             val nat = account.token
-            if (pageTok.isNotEmpty()) {
-                if (pageTok != nat) account.adopt(pageTok)
-                secure.edit().putString("tok_seen", pageTok).apply()
-            } else if (nat.isNotEmpty()) {
-                if (secure.getString("tok_seen", "") == nat) {
-                    account.adopt("")   // кабинет знал этот вход и вышел — выходим и мы
-                } else {
-                    secure.edit().putString("tok_seen", nat).apply()
-                    val js = JSONObject.quote(nat)
-                    web.evaluateJavascript("try{localStorage.setItem('sc_tok',$js);location.reload()}catch(e){}", null)
+            val dead = account.deadToken()
+            val seen = secure.getString("tok_seen", "").orEmpty()
+            // 1.2.6: источник истины — приложение. Раньше токен страницы всегда побеждал: после сброса ключа и входа
+            // по новому страница отдавала СТАРЫЙ токен, приложение принимало его, получало 401 и стирало новый ключ — цикл.
+            when {
+                pageTok.isNotEmpty() && pageTok == nat -> secure.edit().putString("tok_seen", pageTok).apply()
+                // страница хранит отозванный вход: отдаём ей актуальный или убираем
+                pageTok.isNotEmpty() && pageTok == dead -> if (nat.isNotEmpty()) pushTokenToPage(nat) else clearPageToken()
+                // страница отстала: токен тот же, что мы видели раньше, а у приложения уже другой (смена ключа, активация)
+                pageTok.isNotEmpty() && nat.isNotEmpty() && pageTok == seen -> pushTokenToPage(nat)
+                // на странице вошли сами (новый токен, которого мы не видели)
+                pageTok.isNotEmpty() -> {
+                    account.adopt(pageTok)
+                    secure.edit().putString("tok_seen", pageTok).apply()
                 }
+                nat.isNotEmpty() -> {
+                    if (seen == nat) fullLogout("кабинет вышел")   // кабинет знал этот вход и вышел — выходим и мы
+                    else pushTokenToPage(nat)
+                }
+            }
+        }
+    }
+
+    private fun pushTokenToPage(nat: String) {
+        secure.edit().putString("tok_seen", nat).apply()
+        val js = JSONObject.quote(nat)
+        web.evaluateJavascript("try{localStorage.setItem('sc_tok',$js);location.reload()}catch(e){}", null)
+    }
+
+    private fun clearPageToken() {
+        secure.edit().remove("tok_seen").apply()
+        web.evaluateJavascript("try{localStorage.removeItem('sc_tok');location.reload()}catch(e){}", null)
+    }
+
+    /**
+     * 1.2.6: единый выход (кнопка, 401/403, кабинет вышел): VPN выключается, ключ, подписка и вход стираются,
+     * страница очищается (localStorage, cookie, история), кабинет открывается заново на экране входа.
+     */
+    private fun fullLogout(reason: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            runCatching { dropLocalKey() }
+            account.signOut()
+            runOnUiThread {
+                runCatching { LauncherManager.stopService(this@ScActivity) }
+                runCatching { android.webkit.CookieManager.getInstance().removeAllCookies(null) }
+                runCatching { android.webkit.WebStorage.getInstance().deleteAllData() }
+                if (::web.isInitialized) {
+                    runCatching { web.clearHistory(); web.clearCache(true) }
+                    loadHome(PRIMARY_HOME)
+                }
+                emit(JSONObject().put("type", "state").put("state", "off"))
+                emit(JSONObject().put("type", "toast").put("text", "Вы вышли из аккаунта ($reason). Войдите снова"))
             }
         }
     }
@@ -491,7 +533,7 @@ class ScActivity : ComponentActivity() {
                 val out = account.outcome
                 if (out == ScAccount.Outcome.LOCKED || out == ScAccount.Outcome.REVOKED || out == ScAccount.Outcome.REBIND) {
                     go = false
-                    if (out == ScAccount.Outcome.REVOKED) dropLocalKey()      // DEVICE_LOCKED/REBIND: ключ не отозван, не трогаем
+                    if (out == ScAccount.Outcome.REVOKED) fullLogout("сессия закончилась")      // DEVICE_LOCKED/REBIND: ключ не отозван, не трогаем
                     val msg = if (out != ScAccount.Outcome.REVOKED) "Ключ привязан к другому устройству" else "Ключ больше не действует — введи код активации"
                     emit(JSONObject().put("type", "account").put("state", if (out != ScAccount.Outcome.REVOKED) "device_locked" else "no_account").put("message", msg))
                     emit(JSONObject().put("type", "state").put("state", "error").put("error", msg))
@@ -978,6 +1020,26 @@ class ScActivity : ComponentActivity() {
         fun openExternal(url: String) {
             runOnUiThread { this@ScActivity.openExternal(url) }
         }
+
+        /** 1.2.6: выйти из аккаунта полностью (кнопка в кабинете). */
+        @JavascriptInterface
+        fun logout() = this@ScActivity.fullLogout("вы вышли")
+
+        @JavascriptInterface
+        fun loggedIn(): Boolean = this@ScActivity.account.token.isNotEmpty()
+
+        /** 1.2.6: «Подключить телевизор» — код с экрана ТВ (8 цифр, можно с дефисом). Ответ — событие toast. */
+        @JavascriptInterface
+        fun tvApprove(code: String) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val err = this@ScActivity.account.tvApprove(code)
+                emit(JSONObject().put("type", "toast").put("text", err ?: "✅ Телевизор подключён — через пару секунд он войдёт сам"))
+            }
+        }
+
+        /** 1.2.6: окно «Ключ, код или номер» (то же, что при блокировке/активации). */
+        @JavascriptInterface
+        fun redeemDialog() = this@ScActivity.openActivation()
 
         /** apk_v4: трафик приложения (весь VPN идёт через него) и время подключения */
         @JavascriptInterface

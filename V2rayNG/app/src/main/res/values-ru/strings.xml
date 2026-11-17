@@ -569,10 +569,10 @@
     <string name="sub_info_open_page">Открыть страницу подписки</string>
     <string name="sub_info_unlimited">Без ограничений</string>
 
-    <string name="sc_act_title">Активация доступа</string>
-    <string name="sc_act_hint">Введите код активации с сайта или из Telegram-бота. Код действует 30 минут.</string>
-    <string name="sc_act_code_label">Код активации</string>
-    <string name="sc_act_button">Активировать</string>
+    <string name="sc_act_title">Вход в Siberia Connect</string>
+    <string name="sc_act_hint">Вставьте что угодно из этого: ключ или ссылку подписки, код VPN-XXXX-XXXX (из приглашения или с сайта, действует 30 минут), код восстановления SC-XXXXX-XXXXX или номер подписки. Приложение само поймёт, что это. По номеру вход подтверждается в Telegram.</string>
+    <string name="sc_act_code_label">Ключ, код или номер</string>
+    <string name="sc_act_button">Войти</string>
     <string name="sc_act_checking">Проверяем…</string>
     <string name="sc_act_network">Нет связи с сервером. Проверьте интернет и повторите.</string>
     <string name="sc_lock_title">Ключ привязан к другому устройству</string>

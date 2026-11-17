@@ -566,10 +566,10 @@
     <string name="sub_info_traffic" translatable="false">%1$s / %2$s</string>
     <string name="sub_info_unlimited">Unlimited</string>
 
-    <string name="sc_act_title">Activate access</string>
-    <string name="sc_act_hint">Enter the activation code from the website or Telegram bot. The code is valid for 30 minutes.</string>
-    <string name="sc_act_code_label">Activation code</string>
-    <string name="sc_act_button">Activate</string>
+    <string name="sc_act_title">Sign in to Siberia Connect</string>
+    <string name="sc_act_hint">Paste any of these: a key or subscription link, a VPN-XXXX-XXXX code (from an invitation or the website, valid for 30 minutes), a recovery code SC-XXXXX-XXXXX, or a subscription number. The app recognises it automatically. A subscription number is confirmed in Telegram.</string>
+    <string name="sc_act_code_label">Key, code or number</string>
+    <string name="sc_act_button">Sign in</string>
     <string name="sc_act_checking">Checking…</string>
     <string name="sc_act_network">No connection to the server. Check your internet and try again.</string>
     <string name="sc_lock_title">Key is bound to another device</string>

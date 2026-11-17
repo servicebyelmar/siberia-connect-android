@@ -88,10 +88,11 @@ private fun CodeContent(st: ScActivationUiState, onChange: (String) -> Unit, onS
         singleLine = true,
         isError = err != null,
         supportingText = err?.let { { Text(it) } },
-        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, imeAction = ImeAction.Done),
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onSubmit() }),
         enabled = !st.busy,
     )
+    st.waitMessage?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary) }
     Button(onClick = onSubmit, enabled = !st.busy && st.code.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
         Text(stringResource(if (st.busy) R.string.sc_act_checking else R.string.sc_act_button))
     }

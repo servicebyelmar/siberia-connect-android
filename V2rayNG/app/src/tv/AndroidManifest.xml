@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 1.2.6: облегчённая версия для Android TV (flavor "tv", applicationId …vpn.tv).
+     Запускается только ТВ-экран ScTvActivity (LEANBACK_LAUNCHER), сенсорный экран не требуется, WebView-кабинет не открывается. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-feature
+        android:name="android.software.leanback"
+        android:required="true"
+        tools:replace="android:required" />
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <application android:banner="@mipmap/ic_banner">
+
+        <activity
+            android:name=".ui.sc.ScTvActivity"
+            android:exported="true"
+            android:label="Siberia Connect TV"
+            android:banner="@mipmap/ic_banner"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|smallestScreenSize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- кабинет-WebView на ТВ не запускается: убираем его точки входа (LAUNCHER, deep link, QS-плитка) -->
+        <activity
+            android:name=".ui.sc.ScActivity"
+            android:exported="false"
+            tools:node="replace" />
+    </application>
+</manifest>

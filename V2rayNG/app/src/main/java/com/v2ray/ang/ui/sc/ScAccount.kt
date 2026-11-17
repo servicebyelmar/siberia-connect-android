@@ -28,6 +28,7 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
         private const val K_FROM_INSTALL = "token_from_install"
         private const val K_REG_DONE = "auto_reg_done"
         private const val K_GUEST = "acc_guest"
+        private const val K_DEAD = "dead_token"
         val BAD_STATES = setOf("expired", "blocked", "device_limit", "no_account")
     }
 
@@ -121,7 +122,27 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
 
     /** Токен и ключ стираем только при 401/403/Key Expired (не при DEVICE_LOCKED); сам список серверов убирает вызывающий. */
     private fun wipeCredentials() {
-        prefs.edit().putString(K_TOKEN, "").remove(ScSecureStore.K_KEY).apply()
+        val old = token
+        val e = prefs.edit().putString(K_TOKEN, "").remove(ScSecureStore.K_KEY)
+        if (old.isNotEmpty()) e.putString(K_DEAD, old)     // 1.2.6: страница не сможет вернуть этот токен обратно
+        e.apply()
+        last = null
+    }
+
+    /** 1.2.6: последний отозванный токен. Кабинет (WebView) может ещё хранить его — принимать его обратно нельзя. */
+    fun deadToken(): String = prefs.getString(K_DEAD, "").orEmpty()
+
+    /**
+     * 1.2.6: полный выход (кнопка, 401, кабинет вышел). Токен, ключ, метки блокировки стираются одним сохранением;
+     * автосоздание гостя не повторяется (K_REG_DONE). Список серверов и VPN убирает вызывающий.
+     */
+    fun signOut() {
+        val old = token
+        val e = prefs.edit().putString(K_TOKEN, "").remove(ScSecureStore.K_KEY).remove("tok_seen")
+            .remove(ScSecureStore.K_LOCK_UNTIL).remove(ScSecureStore.K_LOCK_NAME).remove(ScSecureStore.K_REBIND_NAME)
+            .putBoolean(K_FROM_INSTALL, false).putBoolean(K_REG_DONE, true).putBoolean(K_GUEST, false)
+        if (old.isNotEmpty()) e.putString(K_DEAD, old)
+        e.apply()
         last = null
     }
 
@@ -146,9 +167,10 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
     fun adopt(t: String) {
         val v = t.trim()
         if (v.length > 100 || v == token) return
+        if (v.isEmpty()) { signOut(); return }                    // кабинет вышел — выходим целиком
+        if (v == deadToken()) return                              // 1.2.6: отозванный токен обратно не принимаем
         prefs.edit().putString(K_TOKEN, v).putBoolean(K_FROM_INSTALL, false).putBoolean(K_REG_DONE, true)
-            .putBoolean(K_GUEST, false).apply()
-        if (v.isEmpty()) last = null
+            .putBoolean(K_GUEST, false).remove(K_DEAD).apply()
     }
 
     /** Единый статус. null — проверить не удалось (нет входа или связи): подключаемся как раньше. */
@@ -257,6 +279,88 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
             Node(it.optString("key"), it.optString("name"), it.optBoolean("available", true), it.optDouble("load", 0.0), it.optInt("rank", 99))
         }
         return Rank(nodes, r.optString("best"), r.optLong("connect_timeout_ms", 6000L).coerceIn(3000L, 15000L))
+    }
+
+    // ───────────── 1.2.6: умный ввод (ключ / код VPN-… / код восстановления / номер подписки) ─────────────
+
+    sealed class Redeem {
+        data class Ok(val link: String, val kind: String) : Redeem()
+        /** Номер подписки: вход подтверждается в Telegram, затем опрос redeemPoll(req). */
+        data class WaitTelegram(val req: String, val message: String) : Redeem()
+        data class Failed(val message: String) : Redeem()
+    }
+
+    fun redeem(input: String): Redeem {
+        val body = JSONObject().put("input", input.trim()).put("did", did()).put("platform", "android")
+            .put("device_name", ScSecureStore.deviceName())
+        val (http, r) = post("redeem", body)
+        if (http == 0) return Redeem.Failed("Нет связи с сервером. Проверь интернет и повтори")
+        if (r != null && r.optString("need") == "telegram") return Redeem.WaitTelegram(r.optString("req"), r.optString("message"))
+        return finishRedeem(http, r)
+    }
+
+    /** null — ещё ждём подтверждения (или нет связи: повторим). */
+    fun redeemPoll(req: String): Redeem? {
+        val (http, r) = post("redeem/poll", JSONObject().put("req", req))
+        if (http == 0 || r == null || r.optBoolean("wait")) return null
+        if (r.optBoolean("expired") || r.optBoolean("denied")) return Redeem.Failed(r.optString("error").ifEmpty { "Вход не подтверждён" })
+        return finishRedeem(http, r)
+    }
+
+    private fun finishRedeem(http: Int, r: JSONObject?): Redeem {
+        val tok = r?.optString("token").orEmpty()
+        if (http != 200 || r == null || tok.isEmpty())
+            return Redeem.Failed(r?.optString("error").orEmpty().ifEmpty { "Не удалось войти — проверь, что вставил ключ или код целиком" })
+        prefs.edit().putString(K_TOKEN, tok).putBoolean(K_FROM_INSTALL, false).putBoolean(K_REG_DONE, true)
+            .putBoolean(K_GUEST, false).remove(K_DEAD).remove(ScSecureStore.K_LOCK_UNTIL).remove(ScSecureStore.K_LOCK_NAME).apply()
+        return Redeem.Ok(r.optString("link"), r.optString("kind"))
+    }
+
+    // ───────────── 1.2.6: привязка телевизора ─────────────
+
+    data class TvPair(val pairId: String, val secret: String, val userCode: String, val qrUrl: String, val expiresIn: Int, val interval: Int)
+
+    sealed class TvPoll {
+        object Pending : TvPoll()
+        object Expired : TvPoll()
+        data class Approved(val link: String, val accountState: String, val message: String) : TvPoll()
+    }
+
+    /** ТВ: запросить код и QR. null — нет связи. */
+    fun tvPairStart(deviceName: String): TvPair? {
+        val (c, r) = post("tv/pair/start", JSONObject().put("did", did()).put("device_name", deviceName))
+        if (c != 200 || r == null || !r.optBoolean("ok")) return null
+        val id = r.optString("pair_id")
+        if (id.isEmpty()) return null
+        return TvPair(id, r.optString("device_secret"), r.optString("user_code"), r.optString("qr_url"),
+            r.optInt("expires_in", 600), r.optInt("interval", 3).coerceIn(2, 10))
+    }
+
+    /** ТВ: опрос. null — нет связи (повторим). При подтверждении токен уже сохранён. */
+    fun tvPairPoll(p: TvPair): TvPoll? {
+        val (c, r) = post("tv/pair/poll", JSONObject().put("pair_id", p.pairId).put("device_secret", p.secret))
+        if (c == 0 || r == null) return null
+        return when (r.optString("state")) {
+            "pending" -> TvPoll.Pending
+            "approved" -> {
+                val tok = r.optString("token")
+                if (tok.isEmpty()) TvPoll.Expired else {
+                    prefs.edit().putString(K_TOKEN, tok).putBoolean(K_FROM_INSTALL, false).putBoolean(K_REG_DONE, true)
+                        .putBoolean(K_GUEST, false).remove(K_DEAD).apply()
+                    TvPoll.Approved(r.optString("link"), r.optString("account_state"), r.optString("message"))
+                }
+            }
+            else -> TvPoll.Expired                 // expired / invalid / consumed — просим новый код
+        }
+    }
+
+    /** Телефон (приложение): подтвердить код с экрана ТВ. null — успех, иначе текст ошибки. */
+    fun tvApprove(code: String): String? {
+        if (token.isEmpty()) return "Сначала войди в приложение"
+        val (c, r) = post("tv/approve", JSONObject().put("code", code.filter { it.isDigit() }), token)
+        if (c == 0) return "Нет связи с сервером. Проверь интернет и повтори"
+        if (c == 200 && r != null && r.optBoolean("ok")) return null
+        return r?.optString("error").orEmpty().ifEmpty { "Не удалось подключить телевизор" }
     }
 
     /** Код связки с Telegram: (код, ссылка) или (null, текст ошибки). */

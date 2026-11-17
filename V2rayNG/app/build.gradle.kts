@@ -13,8 +13,8 @@ android {
         applicationId = "com.siberiaconnect.vpn"
         minSdk = 24
         targetSdk = 37
-        versionCode = 785
-        versionName = "1.2.5"
+        versionCode = 786
+        versionName = "1.2.6"
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
         splits {
@@ -49,6 +49,9 @@ android {
     }
 
     flavorDimensions.add("distribution")
+    // 1.2.6: два продукта из одной кодовой базы — «mobile» (кабинет-WebView) и «tv» (облегчённая версия для Android TV: QR-вход,
+    // без WebView; свой applicationId …vpn.tv, ставится рядом с мобильной). Код ядра, сети и входа — общий (src/main).
+    flavorDimensions.add("form")
     productFlavors {
         create("fdroid") {
             dimension = "distribution"
@@ -58,6 +61,13 @@ android {
         create("playstore") {
             dimension = "distribution"
             buildConfigField("String", "DISTRIBUTION", "\"Play Store\"")
+        }
+        create("mobile") {
+            dimension = "form"
+        }
+        create("tv") {
+            dimension = "form"
+            applicationIdSuffix = ".tv"
         }
     }
 
@@ -112,7 +122,8 @@ android {
                     else
                         "universal"
 
-                    output.outputFileName = "SiberiaConnect_${variant.versionName}_${abi}.apk"
+                    val isTv = variant.productFlavors.any { it.name == "tv" }
+                    output.outputFileName = "${if (isTv) "SiberiaConnectTV" else "SiberiaConnect"}_${variant.versionName}_${abi}.apk"
                     if (versionCodes.containsKey(abi)) {
                         output.versionCodeOverride =
                             (1000000 * versionCodes[abi]!!).plus(variant.versionCode)
