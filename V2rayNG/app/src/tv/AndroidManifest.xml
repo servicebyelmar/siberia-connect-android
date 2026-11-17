@@ -15,13 +15,18 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
-    <application android:banner="@mipmap/ic_banner">
+    <!-- баннер лаунчера ТВ — фирменный (снежинка + «Siberia Connect», 320×180 dp: drawable-mdpi…xxhdpi в src/tv/res), а не «v2rayNG» -->
+    <application
+        android:banner="@drawable/sc_tv_banner"
+        android:icon="@mipmap/ic_sc"
+        tools:replace="android:icon,android:banner">
 
         <activity
             android:name=".ui.sc.ScTvActivity"
             android:exported="true"
             android:label="Siberia Connect TV"
-            android:banner="@mipmap/ic_banner"
+            android:banner="@drawable/sc_tv_banner"
+            android:icon="@mipmap/ic_sc"
             android:launchMode="singleTask"
             android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|smallestScreenSize">
