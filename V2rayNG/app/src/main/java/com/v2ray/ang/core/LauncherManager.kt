@@ -10,6 +10,7 @@ import com.v2ray.ang.extension.isComplexType
 import com.v2ray.ang.extension.toast
 import com.v2ray.ang.extension.toastError
 import com.v2ray.ang.handler.MmkvManager
+import com.v2ray.ang.handler.ScTelemetry
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.helper.MessageHelper
 import com.v2ray.ang.root.RootManager
@@ -53,16 +54,19 @@ object LauncherManager {
 
     fun stopService(context: Context) {
         //context.toast(R.string.toast_services_stop)
+        ScTelemetry.noteUserStop()      // 1.2.7: остановка по действию пользователя/приложения — не «сбой VPN»
         MessageHelper.sendMsg2Service(context, AppConfig.MSG_STATE_STOP, "")
     }
 
     /** Restarts the active daemon without starting a stopped service. */
     fun restartService(context: Context) {
+        ScTelemetry.noteAppRestart()
         MessageHelper.sendMsg2Service(context, AppConfig.MSG_STATE_RESTART, "")
     }
 
     /** Restarts the active daemon, or delegates to the caller's permission-aware start flow. */
     fun restartServiceOrStart(context: Context, startIfStopped: () -> Unit) {
+        ScTelemetry.noteAppRestart()
         MessageHelper.sendMsg2ServiceForResult(context, AppConfig.MSG_STATE_RESTART, "") { handled ->
             if (!handled) startIfStopped()
         }

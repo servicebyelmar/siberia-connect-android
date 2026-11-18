@@ -40,6 +40,8 @@ import com.v2ray.ang.dto.entities.SubscriptionItem
 import com.v2ray.ang.handler.AngConfigManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.ScLock
+import com.v2ray.ang.handler.ScTelemetry
+import com.v2ray.ang.handler.ScTelemetryGate
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.handler.SubscriptionUpdater
 import com.v2ray.ang.helper.MessageHelper
@@ -223,6 +225,12 @@ class ScActivity : ComponentActivity() {
     private val notifPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    private val wakeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            ScTelemetry.noteWake()
+        }
+    }
+
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val i = intent ?: return
@@ -233,6 +241,11 @@ class ScActivity : ComponentActivity() {
                     emit(JSONObject().put("type", "state").put("state", "on"))
                 }
                 AppConfig.MSG_STATE_NOT_RUNNING, AppConfig.MSG_STATE_STOP_SUCCESS -> {
+                    // 1.2.7: был включён и остановился сам (не пользователь и не приложение) — «обрыв сессии»; фильтры — в ScTelemetry
+                    if (running) {
+                        ScTelemetry.log("vpn stopped")
+                        ScTelemetry.report(this@ScActivity, ScTelemetryGate.SESSION_DROPPED, ScTelemetry.locationOf(MmkvManager.getSelectServer()), 6_000L)
+                    }
                     running = false
                     prefs.edit().remove("since").apply()
                     emit(JSONObject().put("type", "state").put("state", "off"))
@@ -246,8 +259,11 @@ class ScActivity : ComponentActivity() {
                         connectFlow()
                         return
                     }
+                    // 1.2.7: спокойный короткий статус; технический текст ядра уходит только в журнал отчёта (очищенный)
+                    ScTelemetry.log("core start failure: " + i.getStringExtra("content").orEmpty().take(200))
+                    ScTelemetry.report(this@ScActivity, ScTelemetryGate.TUNNEL_TIMEOUT, ScTelemetry.locationOf(MmkvManager.getSelectServer()))
                     emit(JSONObject().put("type", "state").put("state", "error")
-                        .put("error", i.getStringExtra("content").orEmpty()))
+                        .put("error", "Не удалось подключиться. Попробуйте сменить локацию"))
                 }
             }
         }
@@ -332,6 +348,9 @@ class ScActivity : ComponentActivity() {
         ContextCompat.registerReceiver(
             this, stateReceiver, IntentFilter(AppConfig.BROADCAST_ACTION_ACTIVITY), Utils.receiverFlags()
         )
+        // 1.2.7: фоновая телеметрия — устройство проснулось (первые 10 с после этого сбоем не считаются) и код обращения для экрана
+        ContextCompat.registerReceiver(this, wakeReceiver, IntentFilter(Intent.ACTION_SCREEN_ON), ContextCompat.RECEIVER_NOT_EXPORTED)
+        ScTelemetry.onIncident = { code -> emit(JSONObject().put("type", "incident").put("code", code)) }
         MessageHelper.sendMsg2Service(this, AppConfig.MSG_REGISTER_CLIENT, "")
 
         if (Build.VERSION.SDK_INT >= 33 &&
@@ -352,11 +371,15 @@ class ScActivity : ComponentActivity() {
         if (updPending && updCanInstall()) { updPending = false; updFile?.let { updInstall(it) } }
         MessageHelper.sendMsg2Service(this, AppConfig.MSG_REGISTER_CLIENT, "")
         syncToken()
+        // 1.2.7: сбой случился, пока приложение было в фоне, и VPN сейчас не включён — показываем код обращения (10 минут)
+        if (!running) ScTelemetry.recentIncident(10 * 60_000L)?.let { emit(JSONObject().put("type", "incident").put("code", it)) }
     }
 
     override fun onDestroy() {
         homeHandler.removeCallbacksAndMessages(null)
         runCatching { unregisterReceiver(stateReceiver) }
+        runCatching { unregisterReceiver(wakeReceiver) }
+        ScTelemetry.onIncident = null
         runCatching { MessageHelper.sendMsg2Service(this, AppConfig.MSG_UNREGISTER_CLIENT, "") }
         super.onDestroy()
     }
@@ -534,6 +557,10 @@ class ScActivity : ComponentActivity() {
                 if (out == ScAccount.Outcome.LOCKED || out == ScAccount.Outcome.REVOKED || out == ScAccount.Outcome.REBIND) {
                     go = false
                     if (out == ScAccount.Outcome.REVOKED) fullLogout("сессия закончилась")      // DEVICE_LOCKED/REBIND: ключ не отозван, не трогаем
+                    else {      // 1.2.7: 409 DEVICE_LOCKED — в фоновую телеметрию (не чаще раза в 10 минут)
+                        ScTelemetry.log("connect: key is bound to another device")
+                        ScTelemetry.report(this@ScActivity, ScTelemetryGate.DEVICE_LOCKED, ScTelemetry.locationOf(MmkvManager.getSelectServer()))
+                    }
                     val msg = if (out != ScAccount.Outcome.REVOKED) "Ключ привязан к другому устройству" else "Ключ больше не действует — введи код активации"
                     emit(JSONObject().put("type", "account").put("state", if (out != ScAccount.Outcome.REVOKED) "device_locked" else "no_account").put("message", msg))
                     emit(JSONObject().put("type", "state").put("state", "error").put("error", msg))
@@ -645,7 +672,12 @@ class ScActivity : ComponentActivity() {
         val sub = ourSub() ?: return
         triedServers.add(failed)
         val list = MmkvManager.decodeServerList(sub.guid).filter { it !in triedServers }
-        if (list.isEmpty()) { triedServers.clear(); return }       // все опробованы — оставляем как есть
+        if (list.isEmpty()) {       // все опробованы — оставляем как есть
+            triedServers.clear()
+            ScTelemetry.log("connect: all servers tried, none answers")
+            ScTelemetry.report(this, ScTelemetryGate.TUNNEL_TIMEOUT, ScTelemetry.locationOf(failed))      // 1.2.7: фон
+            return
+        }
         val rank = runCatching { account.nodesRank() }.getOrNull()
         val next = list.withIndex().minWithOrNull(
             compareBy({ if (nodeOf(rank, it.value)?.available == false) 1 else 0 }, { nodeOf(rank, it.value)?.rank ?: 99 }, { it.index })

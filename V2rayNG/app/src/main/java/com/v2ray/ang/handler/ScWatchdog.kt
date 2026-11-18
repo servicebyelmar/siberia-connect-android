@@ -124,6 +124,8 @@ class ScWatchdog(private val reload: () -> Boolean) {
             }
             ScAccount.Outcome.LOCKED, ScAccount.Outcome.REBIND -> {
                 LogUtil.i("ScWatchdog", "ключ привязан к другому устройству — выключаю VPN")
+                ScTelemetry.log("watchdog: key is bound to another device")
+                ScTelemetry.report(ctx, ScTelemetryGate.DEVICE_LOCKED, ScTelemetry.locationOf(MmkvManager.getSelectServer()))   // 1.2.7: фон
                 stopVpn(ctx)
                 return false
             }
@@ -169,9 +171,13 @@ class ScWatchdog(private val reload: () -> Boolean) {
             if (++bulkFails < 2) return
             bulkFails = 0
             LogUtil.i("ScWatchdog", "204 проходит, а объём обрывается — переключаюсь")
+            ScTelemetry.log("watchdog: 204 ok but bulk transfer stalls")
+            ScTelemetry.report(ctx, ScTelemetryGate.NO_TRAFFIC, ScTelemetry.locationOf(sel))     // 1.2.7: заморозка потока; фон
         } else {
             delay(15_000)
             if (measure(ctx, sel) > 0) return
+            ScTelemetry.log("watchdog: selected server does not answer twice in a row")
+            ScTelemetry.report(ctx, ScTelemetryGate.NO_TRAFFIC, ScTelemetry.locationOf(sel))     // фон: сам отсеет «нет интернета»
         }
         if (System.currentTimeMillis() - lastFailover < 180_000L) return
         val others = list.filter { it != sel }
