@@ -503,12 +503,21 @@ class ScActivity : ComponentActivity() {
                     secure.edit().putString("tok_seen", pageTok).apply()
                 }
                 nat.isNotEmpty() -> {
-                    if (seen == nat) fullLogout("кабинет вышел")   // кабинет знал этот вход и вышел — выходим и мы
-                    else pushTokenToPage(nat)
+                    // 1.2.8: пустой токен страницы НЕ повод выходить. Так бывает при открытии резервного адреса (другой origin,
+                    // пустой localStorage), очистке хранилища WebView системой и т.п. Настоящий выход идёт явно (кнопка → logout())
+                    // или через 401/403 от сервера (REVOKED). Возвращаем странице токен приложения; не чаще раза на токен за запуск,
+                    // чтобы не уйти в цикл перезагрузок, если хранилище страницы не пишется.
+                    if (restoredFor != nat) {
+                        restoredFor = nat
+                        pushTokenToPage(nat)
+                    }
                 }
             }
         }
     }
+
+    /** Токен, который уже возвращали странице в этом запуске (защита от цикла перезагрузок). */
+    private var restoredFor = ""
 
     private fun pushTokenToPage(nat: String) {
         secure.edit().putString("tok_seen", nat).apply()
