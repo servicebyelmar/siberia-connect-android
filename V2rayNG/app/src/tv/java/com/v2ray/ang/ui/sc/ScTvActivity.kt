@@ -235,7 +235,7 @@ class ScTvActivity : ComponentActivity() {
     private fun onPaired(link: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             if (link.isNotEmpty()) runCatching { ScVpn.applySubAny(this, did, link) }
-            else runCatching { account.status()?.let { ScVpn.applyActiveLink(this, did, it) } }
+            else runCatching { account.status()?.let { ScVpn.applyActiveLink(this@ScTvActivity, did, it) } }
             showMain()
             val st = account.last
             if (st != null && st.optString("state") in ScAccount.BAD_STATES) say(st.optString("message").ifEmpty { "Нет активной подписки" })

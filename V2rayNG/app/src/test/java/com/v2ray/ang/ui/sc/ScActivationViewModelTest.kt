@@ -34,7 +34,7 @@ import org.robolectric.annotation.Config
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [34], application = Application::class)   // без AngApplication: она грузит нативный MMKV
 class ScActivationViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private lateinit var account: ScAccount
