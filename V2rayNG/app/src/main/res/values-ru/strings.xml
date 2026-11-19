@@ -584,4 +584,23 @@
     <string name="sc_rebind_body">Прошло 72 часа. Ключ привязан к «%1$s». После переноса там он перестанет работать.</string>
     <string name="sc_rebind_body_generic">Прошло 72 часа. После переноса ключ перестанет работать на прежнем устройстве.</string>
     <string name="sc_rebind_button">Перепривязать на это устройство</string>
+    <string name="sc_auth_title">Вход в Siberia Connect</string>
+    <string name="sc_auth_qr_title">Быстрый вход через Telegram или сайт</string>
+    <string name="sc_auth_qr_hint">Отсканируйте камерой телефона или откройте в Telegram, чтобы подтвердить вход в один клик.</string>
+    <string name="sc_auth_qr_desc">QR-код для входа</string>
+    <string name="sc_auth_code_caption">Или введите этот код в боте:</string>
+    <string name="sc_auth_loading">Готовим код…</string>
+    <string name="sc_auth_waiting">Ждём подтверждения…</string>
+    <string name="sc_auth_pair_error">Не удалось получить код. Проверьте интернет.</string>
+    <string name="sc_auth_expired">Время действия кода вышло</string>
+    <string name="sc_auth_refresh">Обновить код</string>
+    <string name="sc_auth_open">Открыть для подтверждения</string>
+    <string name="sc_auth_key_title">У вас уже есть мастер-ключ?</string>
+    <string name="sc_auth_key_label">Мастер-ключ</string>
+    <string name="sc_auth_paste">Вставить</string>
+    <string name="sc_auth_login">Войти по ключу</string>
+    <string name="sc_auth_where">Где взять мастер-ключ? (Подробнее)</string>
+    <string name="sc_auth_help_title">Как получить мастер-ключ?</string>
+    <string name="sc_auth_help_body">1. Откройте наш Telegram-бот @SibirConnectBot (раздел «Мой ключ») или личный кабинет на сайте sibir-cloud-api.site/account.\n2. Скопируйте ваш персональный мастер-ключ и вставьте его в это окно.\n\nОдин мастер-ключ работает на всех ваших устройствах (телефон, ТВ, ПК).</string>
+    <string name="sc_auth_help_close">Понятно</string>
 </resources>

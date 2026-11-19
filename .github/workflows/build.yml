@@ -93,6 +93,22 @@ jobs:
         fileName: "android_keystore.jks"
         encodedString: ${{ secrets.APP_KEYSTORE_BASE64 }}
 
+    - name: Unit tests (auth screen ViewModel)
+      continue-on-error: true
+      run: |
+        cd ${{ github.workspace }}/V2rayNG
+        echo "sdk.dir=${ANDROID_HOME}" > local.properties
+        chmod 755 gradlew
+        ./gradlew testPlaystoreMobileDebugUnitTest --tests "com.v2ray.ang.ui.sc.*" --no-daemon
+
+    - name: Upload unit test report
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: unit-test-report
+        path: ${{ github.workspace }}/V2rayNG/app/build/reports/tests/
+        if-no-files-found: ignore
+
     - name: Build APK
       run: |
         cd ${{ github.workspace }}/V2rayNG
