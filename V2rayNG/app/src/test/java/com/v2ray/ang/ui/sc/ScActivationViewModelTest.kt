@@ -86,19 +86,20 @@ class ScActivationViewModelTest {
 
     @Test
     fun pause_stopsPolling_resumeKeepsSameSession() {
-        whenever(account.tvPairStart(any())).thenReturn(pair.copy(expiresIn = 600))      // долгая сессия: пауза в 5 с не должна её съесть
+        val longPair = pair.copy(expiresIn = 600)
+        whenever(account.tvPairStart(any())).thenReturn(longPair)      // долгая сессия: пауза в 5 с не должна её съесть
         val vm = vm()
         vm.resumePairing(); dispatcher.scheduler.runCurrent()
         dispatcher.scheduler.advanceTimeBy(3_001); dispatcher.scheduler.runCurrent()
-        verify(account, times(1)).tvPairPoll(pair)
+        verify(account, times(1)).tvPairPoll(longPair)
 
         vm.pausePairing()
         dispatcher.scheduler.advanceTimeBy(5_000); dispatcher.scheduler.runCurrent()
-        verify(account, times(1)).tvPairPoll(pair)           // за время паузы ни одного запроса
+        verify(account, times(1)).tvPairPoll(longPair)           // за время паузы ни одного запроса
 
         vm.resumePairing()
         dispatcher.scheduler.advanceTimeBy(3_001); dispatcher.scheduler.runCurrent()
-        verify(account, times(2)).tvPairPoll(pair)
+        verify(account, times(2)).tvPairPoll(longPair)
         verify(account, times(1)).tvPairStart(any())          // сессия прежняя, новый код не запрашивался
     }
 
