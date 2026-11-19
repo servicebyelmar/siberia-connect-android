@@ -37,7 +37,7 @@ data class ScActivationUiState(
     val activatedLink: String? = null,
     /** 1.2.6: вход по номеру подписки ждёт подтверждения в Telegram. */
     val waitMessage: String? = null,
-    /** Блок «вход по QR» (device flow: /tv/pair/*). */
+    /** Блок «вход по QR» (device flow: эндпоинты tv/pair). */
     val pair: PairPhase = PairPhase.Loading,
     val pairUserCode: String = "",
     val pairUrl: String = "",
