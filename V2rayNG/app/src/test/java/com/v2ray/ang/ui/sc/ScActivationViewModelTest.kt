@@ -86,6 +86,7 @@ class ScActivationViewModelTest {
 
     @Test
     fun pause_stopsPolling_resumeKeepsSameSession() {
+        whenever(account.tvPairStart(any())).thenReturn(pair.copy(expiresIn = 600))      // долгая сессия: пауза в 5 с не должна её съесть
         val vm = vm()
         vm.resumePairing(); dispatcher.scheduler.runCurrent()
         dispatcher.scheduler.advanceTimeBy(3_001); dispatcher.scheduler.runCurrent()
