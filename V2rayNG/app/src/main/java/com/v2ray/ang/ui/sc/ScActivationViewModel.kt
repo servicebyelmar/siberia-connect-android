@@ -182,7 +182,8 @@ class ScActivationViewModel internal constructor(
     private suspend fun poll(p: ScAccount.TvPair) {
         run {
             while (currentCoroutineContext().isActive && clock() < pairEndsAt) {
-                delay(p.interval * 1000L)
+                delay(minOf(p.interval * 1000L, pairEndsAt - clock()).coerceAtLeast(0L))
+                if (clock() >= pairEndsAt) break      // код истёк ровно в срок, а не на следующем тике
                 val r = runCatching { account.tvPairPoll(p) }.getOrNull() ?: continue     // нет связи — повторим
                 when (r) {
                     is ScAccount.TvPoll.Approved -> {

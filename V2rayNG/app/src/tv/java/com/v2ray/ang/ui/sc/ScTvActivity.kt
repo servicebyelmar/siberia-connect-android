@@ -234,7 +234,7 @@ class ScTvActivity : ComponentActivity() {
     /** Вход выполнен (QR подтверждён на телефоне или введён мастер-ключ): токен уже сохранён ScAccount. */
     private fun onPaired(link: String) {
         lifecycleScope.launch(Dispatchers.IO) {
-            if (link.isNotEmpty()) runCatching { ScVpn.applySubAny(this, did, link) }
+            if (link.isNotEmpty()) runCatching { ScVpn.applySubAny(this@ScTvActivity, did, link) }
             else runCatching { account.status()?.let { ScVpn.applyActiveLink(this@ScTvActivity, did, it) } }
             showMain()
             val st = account.last
