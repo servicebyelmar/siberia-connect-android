@@ -303,6 +303,11 @@ class ScActivity : ComponentActivity() {
                     homeLoaded = true
                     homeHandler.removeCallbacksAndMessages(null)
                 }
+                // trial_guard_v1: «выход» стирает localStorage страницы, и сайт считал бы телефон новым браузером. Подставляем
+                // стабильный device_id приложения как идентификатор браузера (sc_gdid) — сервер сводит web-<did> к тому же устройству.
+                if (uri?.authority in allowedAuthorities) {
+                    view.evaluateJavascript("try{localStorage.setItem('sc_gdid',${JSONObject.quote(devId())})}catch(e){}", null)
+                }
                 syncToken()   // 1.1.0: общий вход приложения и кабинета
             }
 
