@@ -66,6 +66,7 @@ import java.util.concurrent.ConcurrentHashMap
 class ScActivity : ComponentActivity() {
 
     companion object {
+        const val BRAND_BG = 0xFF050D1A.toInt()
         const val PRIMARY_HOST = "sibirapp.duckdns.org"
         const val FALLBACK_HOST = "sibir-cloud-api.ru:9443"
         const val PRIMARY_HOME = "https://$PRIMARY_HOST/app/?native=1"
@@ -274,12 +275,32 @@ class ScActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         @Suppress("DEPRECATION")
         run {
-            window.statusBarColor = 0xFF081A3D.toInt()
-            window.navigationBarColor = 0xFF060F2A.toInt()
+            // те же #050D1A, что фон кабинета (Windows / Mini App): бары сливаются с интерфейсом
+            window.statusBarColor = BRAND_BG
+            window.navigationBarColor = BRAND_BG
+        }
+        // тема приложения светлая (windowLightStatusBar=true) — на тёмном фоне нужны светлые значки
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
         }
         web = WebView(this)
-        web.setBackgroundColor(0xFF060F2A.toInt())
-        setContentView(web)
+        web.setBackgroundColor(BRAND_BG)
+        // Android 15+ (targetSdk 35+) принудительно рисует окно под системными барами, а цвета баров игнорирует.
+        // Единое поведение на всех версиях: edge-to-edge + отступы под статус-бар, вырез, панель навигации и клавиатуру.
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        val frame = android.widget.FrameLayout(this).apply { setBackgroundColor(BRAND_BG) }
+        frame.addView(web, android.widget.FrameLayout.LayoutParams(-1, -1))
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(frame) { v, insets ->
+            val i = insets.getInsets(
+                androidx.core.view.WindowInsetsCompat.Type.systemBars() or
+                    androidx.core.view.WindowInsetsCompat.Type.displayCutout() or
+                    androidx.core.view.WindowInsetsCompat.Type.ime()
+            )
+            v.setPadding(i.left, i.top, i.right, i.bottom)
+            androidx.core.view.WindowInsetsCompat.CONSUMED
+        }
+        setContentView(frame)
         web.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true

@@ -2,6 +2,7 @@ package com.v2ray.ang.ui.compose
 
 import android.app.Activity
 import android.os.Build
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -203,5 +204,61 @@ fun AppTheme(
                 AppSnackbarHost(hostState = snackbarController.hostState)
             }
         }
+    }
+}
+
+/**
+ * Фирменная «арктическая» палитра Siberia Connect — те же цвета, что в кабинете (Windows / Mini App / Android WebView):
+ * фон #050D1A, карточки #102444, акцент #00D2FF → #0080FF. Для нативных экранов приложения (активация, блокировка).
+ */
+object SiberiaColors {
+    val Bg = Color(0xFF050D1A)
+    val Card = Color(0xFF102444)
+    val Border = Color(0xFF1C5A80)
+    val Accent = Color(0xFF00D2FF)
+    val AccentDeep = Color(0xFF0080FF)
+    val Text = Color(0xFFDFF1FF)
+    val Muted = Color(0xFF9CC3E8)
+    val Ok = Color(0xFF26E08C)
+    val Err = Color(0xFFFF6B7A)
+}
+
+private val ArcticScheme = darkColorScheme(
+    primary = SiberiaColors.Accent,
+    onPrimary = Color(0xFF03121F),
+    primaryContainer = Color(0xFF0B3A66),
+    onPrimaryContainer = SiberiaColors.Text,
+    secondary = SiberiaColors.AccentDeep,
+    onSecondary = Color.White,
+    tertiary = SiberiaColors.Ok,
+    error = SiberiaColors.Err,
+    onError = Color(0xFF2A0008),
+    background = SiberiaColors.Bg,
+    onBackground = SiberiaColors.Text,
+    surface = SiberiaColors.Bg,
+    onSurface = SiberiaColors.Text,
+    surfaceVariant = SiberiaColors.Card,
+    onSurfaceVariant = SiberiaColors.Muted,
+    outline = SiberiaColors.Border,
+    outlineVariant = Color(0xFF123556),
+    surfaceContainer = SiberiaColors.Card,
+    surfaceContainerHigh = Color(0xFF16305A),
+)
+
+@Composable
+fun SiberiaArcticTheme(content: @Composable () -> Unit) {
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            // тёмный фон — светлые значки в статус-баре и панели навигации
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
+            }
+        }
+    }
+    MaterialTheme(colorScheme = ArcticScheme) {
+        Box(Modifier.fillMaxSize().background(SiberiaColors.Bg)) { content() }
     }
 }

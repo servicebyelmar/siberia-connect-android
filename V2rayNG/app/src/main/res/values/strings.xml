@@ -581,4 +581,23 @@
     <string name="sc_rebind_body">72 hours have passed. The key is bound to “%1$s”. Moving it will disable the key on that device.</string>
     <string name="sc_rebind_body_generic">72 hours have passed. Moving the key will disable it on the previous device.</string>
     <string name="sc_rebind_button">Rebind to this device</string>
+    <string name="sc_auth_title">Sign in to Siberia Connect</string>
+    <string name="sc_auth_qr_title">Quick sign-in via Telegram or the website</string>
+    <string name="sc_auth_qr_hint">Scan with your phone camera or open it in Telegram to confirm sign-in in one tap.</string>
+    <string name="sc_auth_qr_desc">QR code for signing in</string>
+    <string name="sc_auth_code_caption">Or enter this code in the bot:</string>
+    <string name="sc_auth_loading">Preparing the code…</string>
+    <string name="sc_auth_waiting">Waiting for confirmation…</string>
+    <string name="sc_auth_pair_error">Could not get a code. Check your internet connection.</string>
+    <string name="sc_auth_expired">The code has expired</string>
+    <string name="sc_auth_refresh">Refresh code</string>
+    <string name="sc_auth_open">Open to confirm</string>
+    <string name="sc_auth_key_title">Sign in with your master key</string>
+    <string name="sc_auth_key_label">Master key</string>
+    <string name="sc_auth_paste">Paste</string>
+    <string name="sc_auth_login">Sign in with key</string>
+    <string name="sc_auth_where">Your master key is available in your account on the website or in the Telegram bot</string>
+    <string name="sc_auth_help_title">How do I get a master key?</string>
+    <string name="sc_auth_help_body">1. Open our Telegram bot @SibirConnectBot (the “My key” section) or your account on the website sibir-cloud-api.site/account.\n2. Copy your personal master key and paste it here.\n\nOne master key works on all your devices (phone, TV, PC).</string>
+    <string name="sc_auth_help_close">Got it</string>
 </resources>

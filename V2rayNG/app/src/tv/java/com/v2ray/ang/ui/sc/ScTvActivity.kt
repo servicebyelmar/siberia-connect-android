@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -21,12 +20,16 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.viewModels
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.v2ray.ang.ui.compose.SiberiaArcticTheme
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.qrcode.QRCodeWriter
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.core.LauncherManager
@@ -35,9 +38,7 @@ import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.helper.MessageHelper
 import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.File
@@ -59,16 +60,12 @@ class ScTvActivity : ComponentActivity() {
 
     @Volatile private var running = false
     @Volatile private var busy = false
-    private var pairJob: Job? = null
     private var updFile: File? = null
     private var updSha: String = ""
 
-    private lateinit var pairView: LinearLayout
+    private val authVm: ScActivationViewModel by viewModels()
+    private lateinit var pairView: View
     private lateinit var mainView: LinearLayout
-    private lateinit var qrImage: ImageView
-    private lateinit var codeText: TextView
-    private lateinit var pairStatus: TextView
-    private lateinit var btnNewCode: Button
     private lateinit var tvStatus: TextView
     private lateinit var tvInfo: TextView
     private lateinit var tvMsg: TextView
@@ -110,7 +107,6 @@ class ScTvActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        pairJob?.cancel()
         runCatching { unregisterReceiver(stateReceiver) }
         runCatching { MessageHelper.sendMsg2Service(this, AppConfig.MSG_UNREGISTER_CLIENT, "") }
         super.onDestroy()
@@ -156,23 +152,18 @@ class ScTvActivity : ComponentActivity() {
         }
         page.addView(btnUpdate, lp(16))
 
-        // ── вход по QR ──
-        pairView = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; visibility = View.GONE }
-        qrImage = ImageView(this).apply {
-            setBackgroundColor(Color.WHITE); setPadding(dp(12), dp(12), dp(12), dp(12)); contentDescription = "QR-код для входа"
-            layoutParams = LinearLayout.LayoutParams(dp(300), dp(300)).apply { marginEnd = dp(40) }
+        // ── вход: QR + мастер-ключ (общий Compose-экран с телефоном) ──
+        pairView = ComposeView(this).apply {
+            visibility = View.GONE
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                SiberiaArcticTheme {
+                    val st by authVm.state.collectAsStateWithLifecycle()
+                    LaunchedEffect(st.activatedLink) { st.activatedLink?.let { onPaired(it) } }
+                    ScAuthContent(st, authVm::onCodeChange, authVm::submit, authVm::newPairing, authVm::resumePairing, authVm::pausePairing)
+                }
+            }
         }
-        val pairText = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, -2, 1f) }
-        pairText.addView(text("Войдите с телефона", 26f, bold = true))
-        pairText.addView(text("1. Наведите камеру телефона на QR-код\nили откройте sibir-cloud-api.site/tv\n" +
-            "2. Войдите в аккаунт и нажмите «Подключить»\n\nЕсли у вас уже есть приложение Siberia Connect:\nПрофиль → «Подключить ТВ» и введите код:", 16f, "#CBD5E1"), lp(12))
-        codeText = text("········", 44f, "#FDE047", bold = true).apply { typeface = Typeface.MONOSPACE; letterSpacing = 0.1f }
-        pairText.addView(codeText, lp(10))
-        pairStatus = text("Готовим код…", 16f, "#94A3B8")
-        pairText.addView(pairStatus, lp(8))
-        btnNewCode = tvButton("ОБНОВИТЬ КОД", "#1E293B", "#334155").apply { setOnClickListener { startPairing() } }
-        pairText.addView(btnNewCode, lp(16))
-        pairView.addView(qrImage); pairView.addView(pairText)
         page.addView(pairView, lp(24))
 
         // ── главный экран ──
@@ -201,11 +192,12 @@ class ScTvActivity : ComponentActivity() {
     // ───────────── экраны ─────────────
 
     private fun route() {
-        if (account.token.isEmpty()) startPairing() else showMain()
+        if (account.token.isEmpty()) showPair() else showMain()
     }
 
     private fun showMain() = runOnUiThread {
-        pairJob?.cancel()
+        authVm.pairingEnabled = false
+        authVm.pausePairing()
         pairView.visibility = View.GONE
         mainView.visibility = View.VISIBLE
         refreshUi()
@@ -229,56 +221,25 @@ class ScTvActivity : ComponentActivity() {
         btnConnect.isEnabled = !busy
     }
 
-    // ───────────── QR-привязка ─────────────
+    // ───────────── вход (QR + мастер-ключ) ─────────────
 
-    private fun qr(text: String, size: Int = 480): Bitmap? = runCatching {
-        val m = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size, mapOf(EncodeHintType.MARGIN to 1))
-        val px = IntArray(size * size) { i -> if (m.get(i % size, i / size)) Color.BLACK else Color.WHITE }
-        Bitmap.createBitmap(px, size, size, Bitmap.Config.ARGB_8888)
-    }.getOrNull()
-
-    private fun startPairing() {
-        pairJob?.cancel()
-        runOnUiThread {
-            mainView.visibility = View.GONE
-            pairView.visibility = View.VISIBLE
-            codeText.text = "········"
-            pairStatus.text = "Готовим код…"
-            btnNewCode.requestFocus()
-        }
-        pairJob = lifecycleScope.launch(Dispatchers.IO) {
-            while (isActive && account.token.isEmpty()) {
-                val p = account.tvPairStart("Android TV · ${Build.MODEL ?: ""}".trim())
-                if (p == null) {
-                    runOnUiThread { pairStatus.text = "Нет связи с сервером — повторяю…" }
-                    delay(5000)
-                    continue
-                }
-                val bmp = qr(p.qrUrl)
-                runOnUiThread {
-                    qrImage.setImageBitmap(bmp)
-                    codeText.text = p.userCode
-                    pairStatus.text = "Ждём подтверждения на телефоне…"
-                }
-                val end = System.currentTimeMillis() + p.expiresIn * 1000L
-                var done = false
-                while (isActive && System.currentTimeMillis() < end) {
-                    delay(p.interval * 1000L)
-                    val r = runCatching { account.tvPairPoll(p) }.getOrNull() ?: continue
-                    if (r is ScAccount.TvPoll.Approved) { onPaired(r); done = true; break }
-                    if (r is ScAccount.TvPoll.Expired) break
-                }
-                if (done) return@launch
-            }
-        }
+    private fun showPair() = runOnUiThread {
+        mainView.visibility = View.GONE
+        pairView.visibility = View.VISIBLE
+        authVm.pairingEnabled = true
+        authVm.resumePairing()
+        pairView.requestFocus()
     }
 
-    private suspend fun onPaired(r: ScAccount.TvPoll.Approved) {
-        runOnUiThread { pairStatus.text = "Подтверждено! Получаем ключ…" }
-        if (r.link.isNotEmpty()) runCatching { ScVpn.applySubAny(this, did, r.link) }
-        else runCatching { account.status()?.let { ScVpn.applyActiveLink(this, did, it) } }
-        showMain()
-        if (r.accountState in ScAccount.BAD_STATES) say(r.message.ifEmpty { "Нет активной подписки" })
+    /** Вход выполнен (QR подтверждён на телефоне или введён мастер-ключ): токен уже сохранён ScAccount. */
+    private fun onPaired(link: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            if (link.isNotEmpty()) runCatching { ScVpn.applySubAny(this@ScTvActivity, did, link) }
+            else runCatching { account.status()?.let { ScVpn.applyActiveLink(this@ScTvActivity, did, it) } }
+            showMain()
+            val st = account.last
+            if (st != null && st.optString("state") in ScAccount.BAD_STATES) say(st.optString("message").ifEmpty { "Нет активной подписки" })
+        }
     }
 
     // ───────────── подключение ─────────────
@@ -382,7 +343,8 @@ class ScTvActivity : ComponentActivity() {
         runOnUiThread {
             runCatching { LauncherManager.stopService(this) }
             running = false; busy = false
-            startPairing()
+            authVm.resetSession()
+            showPair()
             toastSignedOut(reason)
         }
     }
