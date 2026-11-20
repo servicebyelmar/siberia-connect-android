@@ -595,11 +595,11 @@
     <string name="sc_auth_expired">Время действия кода вышло</string>
     <string name="sc_auth_refresh">Обновить код</string>
     <string name="sc_auth_open">Открыть для подтверждения</string>
-    <string name="sc_auth_key_title">У вас уже есть мастер-ключ?</string>
+    <string name="sc_auth_key_title">Войдите по мастер-ключу</string>
     <string name="sc_auth_key_label">Мастер-ключ</string>
     <string name="sc_auth_paste">Вставить</string>
     <string name="sc_auth_login">Войти по ключу</string>
-    <string name="sc_auth_where">Где взять мастер-ключ? (Подробнее)</string>
+    <string name="sc_auth_where">Мастер-ключ доступен в личном кабинете на сайте или в Telegram-боте</string>
     <string name="sc_auth_help_title">Как получить мастер-ключ?</string>
     <string name="sc_auth_help_body">1. Откройте наш Telegram-бот @SibirConnectBot (раздел «Мой ключ») или личный кабинет на сайте sibir-cloud-api.site/account.\n2. Скопируйте ваш персональный мастер-ключ и вставьте его в это окно.\n\nОдин мастер-ключ работает на всех ваших устройствах (телефон, ТВ, ПК).</string>
     <string name="sc_auth_help_close">Понятно</string>

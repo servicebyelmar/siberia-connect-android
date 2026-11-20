@@ -592,11 +592,11 @@
     <string name="sc_auth_expired">The code has expired</string>
     <string name="sc_auth_refresh">Refresh code</string>
     <string name="sc_auth_open">Open to confirm</string>
-    <string name="sc_auth_key_title">Already have a master key?</string>
+    <string name="sc_auth_key_title">Sign in with your master key</string>
     <string name="sc_auth_key_label">Master key</string>
     <string name="sc_auth_paste">Paste</string>
     <string name="sc_auth_login">Sign in with key</string>
-    <string name="sc_auth_where">Where do I get a master key? (Details)</string>
+    <string name="sc_auth_where">Your master key is available in your account on the website or in the Telegram bot</string>
     <string name="sc_auth_help_title">How do I get a master key?</string>
     <string name="sc_auth_help_body">1. Open our Telegram bot @SibirConnectBot (the “My key” section) or your account on the website sibir-cloud-api.site/account.\n2. Copy your personal master key and paste it here.\n\nOne master key works on all your devices (phone, TV, PC).</string>
     <string name="sc_auth_help_close">Got it</string>

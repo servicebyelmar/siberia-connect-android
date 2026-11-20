@@ -70,35 +70,20 @@ fun ScAuthContent(
     onResumePair: () -> Unit,
     onPausePair: () -> Unit,
 ) {
-    val owner = LocalLifecycleOwner.current
-    DisposableEffect(owner) {
-        val obs = LifecycleEventObserver { _, e ->
-            when (e) {
-                Lifecycle.Event.ON_START -> onResumePair()
-                Lifecycle.Event.ON_STOP -> onPausePair()
-                else -> Unit
-            }
-        }
-        owner.lifecycle.addObserver(obs)
-        onDispose { owner.lifecycle.removeObserver(obs); onPausePair() }
-    }
-    var help by rememberSaveable { mutableStateOf(false) }
+    // вход только по мастер-ключу: QR/опрос пары не запускаем (onResumePair/onPausePair не вызываются)
 
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val wide = maxWidth >= 720.dp
         if (wide) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.Top) {
-                QrBlock(st, onRefreshPair, Modifier.weight(1f))
-                KeyBlock(st, onCodeChange, onSubmit, { help = true }, Modifier.weight(1f))
+                KeyBlock(st, onCodeChange, onSubmit, Modifier.weight(1f))
             }
         } else {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                QrBlock(st, onRefreshPair, Modifier.fillMaxWidth())
-                KeyBlock(st, onCodeChange, onSubmit, { help = true }, Modifier.fillMaxWidth())
+                KeyBlock(st, onCodeChange, onSubmit, Modifier.fillMaxWidth())
             }
         }
     }
-    if (help) HelpDialog { help = false }
 }
 
 @Composable
@@ -172,7 +157,6 @@ private fun KeyBlock(
     st: ScActivationUiState,
     onCodeChange: (String) -> Unit,
     onSubmit: () -> Unit,
-    onHelp: () -> Unit,
     modifier: Modifier,
 ) {
     val clipboard = LocalClipboardManager.current
@@ -205,7 +189,7 @@ private fun KeyBlock(
                 modifier = Modifier.weight(2f),
             ) { Text(stringResource(if (st.busy) R.string.sc_act_checking else R.string.sc_auth_login)) }
         }
-        FocusButton(onClick = onHelp, primary = false, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sc_auth_where)) }
+        Text(stringResource(R.string.sc_auth_where), style = MaterialTheme.typography.bodyMedium, color = SiberiaColors.Muted)
     }
 }
 
