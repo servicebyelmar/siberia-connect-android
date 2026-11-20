@@ -71,6 +71,8 @@ class ScAccount(private val prefs: SharedPreferences, private val did: () -> Str
             c.doOutput = true
             c.setRequestProperty("Content-Type", "application/json")
             if (!auth.isNullOrEmpty()) c.setRequestProperty("X-App-Token", auth)
+            // trial_guard_v1: стабильный аппаратный отпечаток в каждом запросе авторизации/статуса (не зависит от выхода из аккаунта)
+            if (!body.has("hw") && ScSecureStore.hw.isNotEmpty()) body.put("hw", ScSecureStore.hw)
             c.outputStream.use { it.write(body.toString().toByteArray()) }
             val code = c.responseCode
             val stream = if (code >= 400) c.errorStream else c.inputStream

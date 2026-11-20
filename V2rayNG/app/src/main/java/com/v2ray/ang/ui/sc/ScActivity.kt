@@ -296,15 +296,21 @@ class ScActivity : ComponentActivity() {
                 return true
             }
 
-            override fun onPageFinished(view: WebView, url: String?) {
+             override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
                 val uri = url?.let { runCatching { Uri.parse(it) }.getOrNull() }
                 if (uri?.authority in allowedAuthorities && uri?.path?.startsWith("/app/") == true) {
                     homeLoaded = true
                     homeHandler.removeCallbacksAndMessages(null)
                 }
+                if (uri?.authority in allowedAuthorities) {
+                    val did = JSONObject.quote(devId())
+                    val hw = JSONObject.quote(ScSecureStore.hw)
+                    view.evaluateJavascript("try{localStorage.setItem('sc_gdid',$did);if($hw)localStorage.setItem('sc_hw',$hw)}catch(e){}", null)
+                }
                 syncToken()   // 1.1.0: общий вход приложения и кабинета
             }
+
 
             @Deprecated("Deprecated in Java")
             override fun onReceivedError(view: WebView, errorCode: Int, description: String?, failingUrl: String?) {

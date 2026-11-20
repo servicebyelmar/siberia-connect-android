@@ -45,6 +45,7 @@ object ScSecureStore {
         val sec = create(ctx) ?: create(ctx) ?: return legacy
         migrate(legacy, sec)
         bindDevice(ctx, sec)
+        if (hw.isEmpty()) hw = computeHw()
         return sec
     }
 
@@ -89,6 +90,25 @@ object ScSecureStore {
         val uuid = "and-" + sha("sc:${androidId(ctx)}:${BuildConfig.APPLICATION_ID}").take(12).joinToString("") { "%02x".format(it) }
         e.putString(K_FP, fp).putString(K_UUID, uuid).apply()
     }
+
+    /**
+     * trial_guard_v1: аппаратный отпечаток для серверного реестра пробных — SHA-256 от Widevine device unique ID (MediaDrm).
+     * Не меняется при выходе из аккаунта, очистке данных и переустановке. Пусто, если DRM недоступен — тогда сервер опирается на device_id.
+     * Сервер единственный решает, положен ли пробный; приложение только сообщает, что это за устройство.
+     */
+    @Volatile
+    var hw: String = ""
+        private set
+
+    private fun computeHw(): String = runCatching {
+        val drm = android.media.MediaDrm(java.util.UUID.fromString("edef8ba9-79d6-4ace-a3c8-27dcd51d21ed"))
+        try {
+            val id = drm.getPropertyByteArray(android.media.MediaDrm.PROPERTY_DEVICE_UNIQUE_ID)
+            sha("sc-hw:" + id.joinToString("") { "%02x".format(it) }).joinToString("") { "%02x".format(it) }
+        } finally {
+            if (Build.VERSION.SDK_INT >= 28) drm.close() else @Suppress("DEPRECATION") drm.release()
+        }
+    }.getOrDefault("")
 
     fun deviceUuid(ctx: Context): String = prefs(ctx).getString(K_UUID, null)
         ?: "and-" + sha("sc:${androidId(ctx)}:${BuildConfig.APPLICATION_ID}").take(12).joinToString("") { "%02x".format(it) }
