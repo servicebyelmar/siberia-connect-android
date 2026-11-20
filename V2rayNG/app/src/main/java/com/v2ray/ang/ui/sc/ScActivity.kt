@@ -22,7 +22,10 @@ import android.provider.Settings
 import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.view.HapticFeedbackConstants
+import android.view.ViewGroup
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
@@ -147,6 +150,7 @@ class ScActivity : ComponentActivity() {
     }
 
     private lateinit var web: WebView
+    private val wolfAssets by lazy { ScWolfAssets(this) }
     private val prefs by lazy { getSharedPreferences("sc_app", MODE_PRIVATE) }
     private val homeHandler = Handler(Looper.getMainLooper())
     private var homeLoaded = false
@@ -317,6 +321,9 @@ class ScActivity : ComponentActivity() {
                 return true
             }
 
+             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                 wolfAssets.intercept(request) ?: super.shouldInterceptRequest(view, request)
+
              override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
                 val uri = url?.let { runCatching { Uri.parse(it) }.getOrNull() }
@@ -408,6 +415,10 @@ class ScActivity : ComponentActivity() {
         runCatching { unregisterReceiver(wakeReceiver) }
         ScTelemetry.onIncident = null
         runCatching { MessageHelper.sendMsg2Service(this, AppConfig.MSG_UNREGISTER_CLIENT, "") }
+        if (::web.isInitialized) {
+            (web.parent as? ViewGroup)?.removeView(web)
+            web.destroy()   // освобождает и видеоплеер страницы
+        }
         super.onDestroy()
     }
 
@@ -936,6 +947,16 @@ class ScActivity : ComponentActivity() {
         @JavascriptInterface
         fun openActivation() = this@ScActivity.openActivation()
 
+
+        /** Адрес, по которому страница берёт файлы анимации логотипа (их отдаёт приложение, см. ScWolfAssets). */
+        @JavascriptInterface
+        fun assetBase(): String = ScWolfAssets.BASE
+
+        /** Тактильный отклик в момент начала подключения. */
+        @JavascriptInterface
+        fun haptic() {
+            runOnUiThread { if (::web.isInitialized) web.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS) }
+        }
 
         @JavascriptInterface
         fun apiFallback(): String =
