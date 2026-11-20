@@ -403,6 +403,7 @@ class ScActivity : ComponentActivity() {
         super.onResume()
         // upd_v1: вернулись из настроек с разрешением — сразу открываем установщик
         if (updPending && updCanInstall()) { updPending = false; updFile?.let { updInstall(it) } }
+        updCheckNative()
         MessageHelper.sendMsg2Service(this, AppConfig.MSG_REGISTER_CLIENT, "")
         syncToken()
         // 1.2.7: сбой случился, пока приложение было в фоне, и VPN сейчас не включён — показываем код обращения (10 минут)
@@ -846,8 +847,78 @@ class ScActivity : ComponentActivity() {
     private var updFile: java.io.File? = null
     private var updPending = false
 
-    private fun updEmit(stage: String, pct: Int = 0, text: String = "") =
+    private fun updEmit(stage: String, pct: Int = 0, text: String = "") {
         emit(JSONObject().put("type", "update").put("stage", stage).put("pct", pct).put("text", text))
+        runOnUiThread { updUi(stage, pct, text) }
+    }
+
+    // ── upd_v2: проверка version.json при запуске (не зависит от входа в кабинет) ──
+    private var updDialog: android.app.AlertDialog? = null
+    private var updBar: android.widget.ProgressBar? = null
+    private var updMsg: android.widget.TextView? = null
+    private var updChecked = 0L
+    private var updAskedFor = 0
+
+    private fun updCheckNative() {
+        if (updBusy || System.currentTimeMillis() - updChecked < 30 * 60_000L) return
+        updChecked = System.currentTimeMillis()
+        Thread {
+            runCatching {
+                val c = java.net.URL("https://sibirapp.duckdns.org/app/dl/version.json?t=${System.currentTimeMillis()}")
+                    .openConnection() as java.net.HttpURLConnection
+                c.connectTimeout = 10000; c.readTimeout = 10000
+                c.setRequestProperty("Cache-Control", "no-cache")
+                if (c.responseCode != 200) return@runCatching
+                val j = JSONObject(c.inputStream.bufferedReader().readText())
+                // versionCode на сервере — с префиксом ABI (4000790), у BuildConfig — чистый (790)
+                val srv = (j.optLong("versionCode", 0) % 1_000_000L).toInt()
+                if (srv <= BuildConfig.VERSION_CODE) { updCleanup(); return@runCatching }
+                if (srv == updAskedFor) return@runCatching   // уже спрашивали в этом запуске
+                updAskedFor = srv
+                val v = j.optString("version"); val mb = (j.optLong("size", 0) / 1048576).toInt()
+                val notes = j.optString("notes")
+                runOnUiThread { if (!isFinishing) updAsk(v, mb, notes) }
+            }
+        }.start()
+    }
+
+    private fun updAsk(v: String, mb: Int, notes: String) {
+        updFile = null
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Доступно обновление $v")
+            .setMessage((if (notes.isNotBlank()) notes + "\n\n" else "") + "Скачаем" + (if (mb > 0) " ($mb МБ)" else "") + " и откроем установщик Android. Вход и настройки сохранятся.")
+            .setPositiveButton("Обновить") { _, _ -> updShowProgress(); updRun() }
+            .setNegativeButton("Позже", null)
+            .show()
+    }
+
+    private fun updShowProgress() {
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val box = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL; setPadding(pad, pad, pad, 0) }
+        updMsg = android.widget.TextView(this).apply { text = "Подключаюсь…" }
+        updBar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 100 }
+        box.addView(updMsg); box.addView(updBar)
+        updDialog = android.app.AlertDialog.Builder(this).setTitle("Обновление").setView(box)
+            .setNegativeButton("Скрыть", null).show()
+    }
+
+    private fun updUi(stage: String, pct: Int, text: String) {
+        val d = updDialog ?: return
+        when (stage) {
+            "download" -> { updBar?.progress = pct; updMsg?.text = "Скачиваю… $pct%" }
+            "perm" -> updMsg?.text = "Разреши установку для Siberia Connect в настройках и вернись — установка продолжится сама"
+            "install" -> { updBar?.progress = 100; updMsg?.text = "Подтверди установку в окне Android" }
+            "error" -> { updMsg?.text = text; d.setButton(android.app.AlertDialog.BUTTON_POSITIVE, "Повторить") { _, _ -> updShowProgress(); updRun() } }
+        }
+    }
+
+    /** Удаляет скачанные ранее APK (старая папка upd тоже). */
+    private fun updCleanup() {
+        runCatching {
+            java.io.File(cacheDir, "updates").deleteRecursively()
+            java.io.File(cacheDir, "upd").deleteRecursively()
+        }
+    }
 
     private fun updCanInstall(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()
@@ -877,9 +948,10 @@ class ScActivity : ComponentActivity() {
         updBusy = true
         Thread {
             try {
-                val dir = java.io.File(cacheDir, "upd").apply { mkdirs() }
+                updCleanup()
+                val dir = java.io.File(cacheDir, "updates").apply { mkdirs() }
                 val tmp = java.io.File(dir, "dl.part")
-                val c = java.net.URL("https://sibirapp.duckdns.org/app/dl/SiberiaConnect.apk").openConnection() as java.net.HttpURLConnection
+                val c = java.net.URL("https://sibirapp.duckdns.org/app/dl/SiberiaConnect.apk?t=${System.currentTimeMillis()}").openConnection() as java.net.HttpURLConnection
                 c.connectTimeout = 15000
                 c.readTimeout = 30000
                 c.setRequestProperty("Cache-Control", "no-cache")
