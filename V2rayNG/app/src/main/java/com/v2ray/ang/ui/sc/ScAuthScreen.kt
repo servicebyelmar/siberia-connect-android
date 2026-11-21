@@ -216,7 +216,7 @@ private fun FocusButton(
 ) {
     val src = remember { MutableInteractionSource() }
     val focused by src.collectIsFocusedAsState()
-    val m = modifier.then(if (focused) Modifier.border(3.dp, Color.White, RoundedCornerShape(24.dp)) else Modifier)
+    val m = modifier.then(if (focused) Modifier.border(3.dp, SiberiaColors.Accent, RoundedCornerShape(24.dp)) else Modifier)
     if (primary) Button(onClick = onClick, modifier = m, enabled = enabled, interactionSource = src, content = content)
     else OutlinedButton(onClick = onClick, modifier = m, enabled = enabled, interactionSource = src, content = content)
 }
