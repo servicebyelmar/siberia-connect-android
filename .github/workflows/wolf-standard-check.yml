@@ -1,9 +1,6 @@
 name: Wolf Standard Android PR Check
 
 on:
-  push:
-    branches:
-      - wolf-standard-redesign
   pull_request:
     branches:
       - master
