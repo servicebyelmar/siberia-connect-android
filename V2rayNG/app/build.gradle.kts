@@ -8,6 +8,7 @@ plugins {
 android {
     namespace = "com.v2ray.ang"
     compileSdk = 37
+    ndkVersion = "30.0.16248370"
 
     defaultConfig {
         applicationId = "com.siberiaconnect.vpn"
