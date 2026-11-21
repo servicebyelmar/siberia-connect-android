@@ -35,12 +35,12 @@ private val LightColor = lightColorScheme(
     onPrimaryContainer = Color(0xFF000000), // Black
     secondary = Color(0xFF718A99), // Steel
     onSecondary = Color(0xFFFFFFFF), // White
-    secondaryContainer = Color(0xFFFFE8D6), // Pale Orange
-    onSecondaryContainer = Color(0xFF2B1700), // Dark Brown
-    tertiary = Color(0xFF009966), // Green
+    secondaryContainer = Color(0xFFE5EAED), // Silver surface
+    onSecondaryContainer = Color(0xFF1A2229), // Graphite
+    tertiary = Color(0xFF5E7D6D), // Muted forest
     onTertiary = Color(0xFFFFFFFF), // White
-    tertiaryContainer = Color(0xFFA0F2D0), // Light Green
-    onTertiaryContainer = Color(0xFF00201A), // Dark Teal
+    tertiaryContainer = Color(0xFFDCE8E1), // Pale mint
+    onTertiaryContainer = Color(0xFF18362A), // Forest
     error = Color(0xFFBA1A1A), // Red
     errorContainer = Color(0xFFFFDAD6), // Light Red
     onError = Color(0xFFFFFFFF), // White
@@ -49,15 +49,15 @@ private val LightColor = lightColorScheme(
     onBackground = Color(0xFF1C1B1F), // Near Black
     surface = Color(0xFFFFFFFF), // White
     onSurface = Color(0xFF1C1B1F), // Near Black
-    surfaceVariant = Color(0xFFE7E0EC), // Light Purple Gray
-    onSurfaceVariant = Color(0xFF49454F), // Dark Gray
-    outline = Color(0xFF79747E), // Medium Gray
-    outlineVariant = Color(0xFFCAC4D0), // Light Gray
+    surfaceVariant = Color(0xFFE8EDF0), // Cool gray
+    onSurfaceVariant = Color(0xFF53636D), // Steel
+    outline = Color(0xFF77858E), // Steel outline
+    outlineVariant = Color(0xFFD2DCE1), // Silver line
     inverseSurface = Color(0xFF313033), // Dark Gray
     inverseOnSurface = Color(0xFFF4EFF4), // Very Light Gray
-    inversePrimary = Color(0xFFC0C0C0), // Silver Gray
+    inversePrimary = Color(0xFFD9E1E6), // Silver
     scrim = Color(0xFF000000), // Black
-    surfaceTint = Color(0xFF000000), // Black
+    surfaceTint = Color(0xFF53636D), // Steel
     surfaceContainerLowest = Color(0xFFFFFFFF), // White
     surfaceContainerLow = Color(0xFFF7F7F7), // Very Light Gray
     surfaceContainer = Color(0xFFF1F1F1), // Light Gray
@@ -128,7 +128,7 @@ object ThemeManager {
     val themeMode: StateFlow<String> = _themeMode.asStateFlow()
 
     private val _dynamicColorEnabled = MutableStateFlow(
-        MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, true)
+        MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, false)
     )
     val dynamicColorEnabled: StateFlow<Boolean> = _dynamicColorEnabled.asStateFlow()
 
@@ -209,7 +209,7 @@ fun AppTheme(
 
 /**
  * Фирменная «арктическая» палитра Siberia Connect — те же цвета, что в кабинете (Windows / Mini App / Android WebView):
- * фон #0B0D10, карточки #13191F, акцент #D9E1E6. Для нативных экранов приложения (активация, блокировка).
+ * фон #0B0D10, карточки #13191F, акцент #D9E1E6. Системные динамические цвета по умолчанию отключены, чтобы брендовая палитра оставалась единой.
  */
 object SiberiaColors {
     val Bg = Color(0xFF0B0D10)
@@ -225,11 +225,11 @@ object SiberiaColors {
 
 private val ArcticScheme = darkColorScheme(
     primary = SiberiaColors.Accent,
-    onPrimary = Color(0xFF03121F),
-    primaryContainer = Color(0xFF0B3A66),
+    onPrimary = Color(0xFF10151A),
+    primaryContainer = Color(0xFF26313A),
     onPrimaryContainer = SiberiaColors.Text,
     secondary = SiberiaColors.AccentDeep,
-    onSecondary = Color.White,
+    onSecondary = Color(0xFF10151A),
     tertiary = SiberiaColors.Ok,
     error = SiberiaColors.Err,
     onError = Color(0xFF2A0008),
@@ -240,9 +240,9 @@ private val ArcticScheme = darkColorScheme(
     surfaceVariant = SiberiaColors.Card,
     onSurfaceVariant = SiberiaColors.Muted,
     outline = SiberiaColors.Border,
-    outlineVariant = Color(0xFF123556),
+    outlineVariant = Color(0xFF29343B),
     surfaceContainer = SiberiaColors.Card,
-    surfaceContainerHigh = Color(0xFF16305A),
+    surfaceContainerHigh = Color(0xFF1A2229),
 )
 
 @Composable
