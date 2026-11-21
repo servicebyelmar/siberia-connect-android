@@ -1,9 +1,6 @@
 name: Wolf Standard Android PR Check
 
 on:
-  push:
-    branches:
-      - wolf-standard-redesign
   pull_request:
     branches:
       - master
@@ -13,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: wolf-standard-android-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: wolf-standard-android-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -90,13 +87,7 @@ jobs:
       - name: Verify Kotlin Gradle plugin availability
         run: |
           curl --retry 3 --retry-all-errors --fail --silent --show-error \
-            -o /dev/null -w "Kotlin plugin marker HTTP %{http_code}\\n" \
-            "https://plugins.gradle.org/m2/org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.4.21/org.jetbrains.kotlin.android.gradle.plugin-2.4.21.pom"
-
-      - name: Verify Kotlin Gradle plugin availability
-        run: |
-          curl --retry 3 --retry-all-errors --fail --silent --show-error \
-            -o /dev/null -w "Kotlin plugin marker HTTP %{http_code}\\n" \
+            -o /dev/null -w "Kotlin plugin marker HTTP %{http_code}\n" \
             "https://plugins.gradle.org/m2/org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.4.21/org.jetbrains.kotlin.android.gradle.plugin-2.4.21.pom"
 
       - name: Run auth-screen unit tests
@@ -104,7 +95,7 @@ jobs:
           cd "${{ github.workspace }}/V2rayNG"
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
           chmod 755 gradlew
-          ./gradlew testPlaystoreMobileDebugUnitTest --tests "com.v2ray.ang.ui.sc.*" --no-daemon --refresh-dependencies --stacktrace --info --refresh-dependencies --stacktrace --info
+          ./gradlew testPlaystoreMobileDebugUnitTest --tests "com.v2ray.ang.ui.sc.*" --no-daemon --refresh-dependencies --stacktrace --info
 
       - name: Build mobile and TV debug APKs
         run: |
