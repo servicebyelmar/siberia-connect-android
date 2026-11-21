@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
-import coil3.compose.AsyncImage
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -121,18 +121,31 @@ private fun WolfIdentity() {
         label = "wolf-scale",
     )
     val motionScale = if (animationsEnabled) scale else 1f
-    AsyncImage(
-        model = "https://sibir-cloud-api.site/app/img/wolf-idle.webp",
-        contentDescription = "Сибирский Волк — Siberia Connect",
-        placeholder = painterResource(id = R.drawable.ic_wolf_foreground),
-        error = painterResource(id = R.drawable.ic_wolf_foreground),
-        contentScale = ContentScale.Crop,
-        modifier = Modifier
-            .size(if (wide) 144.dp else 110.dp)
-            .clip(CircleShape)
-            .border(1.dp, SiberiaColors.Accent, CircleShape)
-            .graphicsLayer(scaleX = motionScale, scaleY = motionScale),
-    )
+    val context = LocalContext.current
+    val portrait = remember(context) {
+        runCatching {
+            context.assets.open("wolf/wolf-idle.webp").use { BitmapFactory.decodeStream(it) }
+        }.getOrNull()?.asImageBitmap()
+    }
+    val wolfModifier = Modifier
+        .size(if (wide) 144.dp else 110.dp)
+        .clip(CircleShape)
+        .border(1.dp, SiberiaColors.Accent, CircleShape)
+        .graphicsLayer(scaleX = motionScale, scaleY = motionScale)
+    if (portrait != null) {
+        Image(
+            bitmap = portrait,
+            contentDescription = "Сибирский Волк — Siberia Connect",
+            contentScale = ContentScale.Crop,
+            modifier = wolfModifier,
+        )
+    } else {
+        Image(
+            painter = painterResource(id = R.drawable.ic_wolf_foreground),
+            contentDescription = "Сибирский Волк — Siberia Connect",
+            modifier = wolfModifier,
+        )
+    }
 }
 
 @Composable
