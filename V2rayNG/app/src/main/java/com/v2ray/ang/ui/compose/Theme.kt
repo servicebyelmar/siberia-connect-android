@@ -29,10 +29,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 private val LightColor = lightColorScheme(
-    primary = Color(0xFF000000), // Black
-    onPrimary = Color(0xFFFFFFFF), // White
-    primaryContainer = Color(0xFFE0E0E0), // Light Gray
-    onPrimaryContainer = Color(0xFF000000), // Black
+    primary = Color(0xFF13191F), // Graphite
+    onPrimary = Color(0xFFEEF2F5), // Soft white
+    primaryContainer = Color(0xFFD9E1E6), // Silver
+    onPrimaryContainer = Color(0xFF10151A), // Graphite
     secondary = Color(0xFF718A99), // Steel
     onSecondary = Color(0xFFFFFFFF), // White
     secondaryContainer = Color(0xFFE5EAED), // Silver surface
@@ -77,7 +77,7 @@ private val DarkColor = darkColorScheme(
     tertiary = Color(0xFF91AA9D), // Muted mint
     onTertiary = Color(0xFF00382E), // Dark Teal
     tertiaryContainer = Color(0xFF263B35), // Muted forest
-    onTertiaryContainer = Color(0xFFA0F2D0), // Light Green
+    onTertiaryContainer = Color(0xFFC8D7CF), // Pale mint
     error = Color(0xFFFFB4AB), // Light Red
     errorContainer = Color(0xFF93000A), // Dark Red
     onError = Color(0xFF690005), // Deep Red
@@ -92,9 +92,9 @@ private val DarkColor = darkColorScheme(
     outlineVariant = Color(0xFF29343B), // Subtle outline
     inverseSurface = Color(0xFFE6E1E5), // Light Gray
     inverseOnSurface = Color(0xFF1C1B1F), // Near Black
-    inversePrimary = Color(0xFF000000), // Black
+    inversePrimary = Color(0xFF718A99), // Steel
     scrim = Color(0xFF000000), // Black
-    surfaceTint = Color(0xFFC0C0C0), // Silver Gray
+    surfaceTint = Color(0xFFD9E1E6), // Silver
     surfaceContainerLowest = Color(0xFF080A0D), // Deep graphite
     surfaceContainerLow = Color(0xFF10151A), // Graphite panel
     surfaceContainer = Color(0xFF13191F), // Card
