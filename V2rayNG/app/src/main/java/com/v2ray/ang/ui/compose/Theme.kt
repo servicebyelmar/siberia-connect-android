@@ -62,40 +62,40 @@ private val LightColor = lightColorScheme(
 )
 
 private val DarkColor = darkColorScheme(
-    primary = Color(0xFFD9E1E6), // Silver
-    onPrimary = Color(0xFF10151A), // Graphite
-    primaryContainer = Color(0xFF26313A), // Steel
-    onPrimaryContainer = Color(0xFFEEF2F5), // Soft white
-    secondary = Color(0xFF718A99), // Steel
-    onSecondary = Color(0xFF10151A), // Graphite
-    secondaryContainer = Color(0xFF26343D), // Steel surface
-    onSecondaryContainer = Color(0xFFD9E1E6), // Silver
-    tertiary = Color(0xFF91AA9D), // Muted mint
-    onTertiary = Color(0xFF00382E), // Dark Teal
-    tertiaryContainer = Color(0xFF263B35), // Muted forest
-    onTertiaryContainer = Color(0xFFC8D7CF), // Pale mint
+    primary = Color(0xFF7DDFFF), // Silver
+    onPrimary = Color(0xFF061625), // Graphite
+    primaryContainer = Color(0xFF143C54), // Steel
+    onPrimaryContainer = Color(0xFFF4FBFF), // Soft white
+    secondary = Color(0xFFA6CADC), // Steel
+    onSecondary = Color(0xFF0A2739), // Graphite
+    secondaryContainer = Color(0xFF15394D), // Steel surface
+    onSecondaryContainer = Color(0xFFD7F3FC), // Silver
+    tertiary = Color(0xFF57D6B4), // Muted mint
+    onTertiary = Color(0xFF07352B), // Dark Teal
+    tertiaryContainer = Color(0xFF0F4038), // Muted forest
+    onTertiaryContainer = Color(0xFFCBF6E8), // Pale mint
     error = Color(0xFFFFB4AB), // Light Red
     errorContainer = Color(0xFF93000A), // Dark Red
     onError = Color(0xFF690005), // Deep Red
     onErrorContainer = Color(0xFFFFDAD6), // Light Red
-    background = Color(0xFF0B0D10), // Graphite
-    onBackground = Color(0xFFEEF2F5), // Soft white
-    surface = Color(0xFF0B0D10), // Graphite
-    onSurface = Color(0xFFEEF2F5), // Soft white
-    surfaceVariant = Color(0xFF1A2229), // Panel
-    onSurfaceVariant = Color(0xFFA9B5BD), // Muted text
-    outline = Color(0xFF53636D), // Steel outline
-    outlineVariant = Color(0xFF29343B), // Subtle outline
+    background = Color(0xFF061320), // Graphite
+    onBackground = Color(0xFFF1F8FC), // Soft white
+    surface = Color(0xFF0B1C2A), // Graphite
+    onSurface = Color(0xFFF1F8FC), // Soft white
+    surfaceVariant = Color(0xFF183449), // Panel
+    onSurfaceVariant = Color(0xFFB0C9D8), // Muted text
+    outline = Color(0xFF3B708A), // Steel outline
+    outlineVariant = Color(0xFF245168), // Subtle outline
     inverseSurface = Color(0xFFE6E1E5), // Light Gray
     inverseOnSurface = Color(0xFF1C1B1F), // Near Black
-    inversePrimary = Color(0xFF718A99), // Steel
+    inversePrimary = Color(0xFF8CCFEC), // Steel
     scrim = Color(0xFF000000), // Black
-    surfaceTint = Color(0xFFD9E1E6), // Silver
-    surfaceContainerLowest = Color(0xFF080A0D), // Deep graphite
-    surfaceContainerLow = Color(0xFF10151A), // Graphite panel
-    surfaceContainer = Color(0xFF13191F), // Card
-    surfaceContainerHigh = Color(0xFF1A2229), // Raised card
-    surfaceContainerHighest = Color(0xFF222D35), // Highest card
+    surfaceTint = Color(0xFF7DDFFF), // Silver
+    surfaceContainerLowest = Color(0xFF050D17), // Deep graphite
+    surfaceContainerLow = Color(0xFF0A1B2A), // Graphite panel
+    surfaceContainer = Color(0xFF102A3B), // Card
+    surfaceContainerHigh = Color(0xFF183A50), // Raised card
+    surfaceContainerHighest = Color(0xFF214C64), // Highest card
 )
 
 // Semantic Colors
@@ -195,24 +195,25 @@ fun AppTheme(
 
 /**
  * Фирменная «арктическая» палитра Siberia Connect — те же цвета, что в кабинете (Windows / Mini App / Android WebView):
- * фон #0B0D10, карточки #13191F, акцент #D9E1E6. Системные динамические цвета по умолчанию отключены, чтобы брендовая палитра оставалась единой.
+ * фон #061320, карточки #102A3B, акцент #7DDFFF. Системные динамические цвета по умолчанию отключены, чтобы брендовая палитра оставалась единой.
  */
 object SiberiaColors {
-    val Bg = Color(0xFF0B0D10)
-    val Card = Color(0xFF13191F)
-    val Border = Color(0xFF53636D)
-    val Accent = Color(0xFFD9E1E6)
-    val AccentDeep = Color(0xFF718A99)
-    val Text = Color(0xFFEEF2F5)
-    val Muted = Color(0xFFA9B5BD)
-    val Ok = Color(0xFF91AA9D)
+    // Aurora Signature: the same optical hierarchy as the website and Mini App.
+    val Bg = Color(0xFF061320)
+    val Card = Color(0xFF102A3B)
+    val Border = Color(0xFF3B708A)
+    val Accent = Color(0xFF7DDFFF)
+    val AccentDeep = Color(0xFFA6CADC)
+    val Text = Color(0xFFF1F8FC)
+    val Muted = Color(0xFFB0C9D8)
+    val Ok = Color(0xFF57D6B4)
     val Err = Color(0xFFFF6B7A)
 }
 
 private val ArcticScheme = darkColorScheme(
     primary = SiberiaColors.Accent,
-    onPrimary = Color(0xFF10151A),
-    primaryContainer = Color(0xFF26313A),
+    onPrimary = Color(0xFF061625),
+    primaryContainer = Color(0xFF143C54),
     onPrimaryContainer = SiberiaColors.Text,
     secondary = SiberiaColors.AccentDeep,
     onSecondary = Color(0xFF10151A),
@@ -226,9 +227,9 @@ private val ArcticScheme = darkColorScheme(
     surfaceVariant = SiberiaColors.Card,
     onSurfaceVariant = SiberiaColors.Muted,
     outline = SiberiaColors.Border,
-    outlineVariant = Color(0xFF29343B),
+    outlineVariant = Color(0xFF245168),
     surfaceContainer = SiberiaColors.Card,
-    surfaceContainerHigh = Color(0xFF1A2229),
+    surfaceContainerHigh = Color(0xFF183A50),
 )
 
 @Composable
