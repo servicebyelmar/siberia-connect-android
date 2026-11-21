@@ -90,8 +90,8 @@ fun ScAuthContent(
 private fun Card(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier
-            .background(SiberiaColors.Card, RoundedCornerShape(20.dp))
-            .border(1.dp, SiberiaColors.Border, RoundedCornerShape(20.dp))
+            .background(SiberiaColors.Card, RoundedCornerShape(18.dp))
+            .border(1.dp, SiberiaColors.Border, RoundedCornerShape(18.dp))
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
