@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: wolf-standard-android-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: wolf-standard-android-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -33,7 +33,12 @@ jobs:
         with:
           log-accepted-android-sdk-licenses: false
           cmdline-tools-version: '14742923'
-          packages: 'platforms;android-37 build-tools;37.0.0 platform-tools'
+          packages: 'platforms;android-37.0 build-tools;37.0.0 platform-tools'
+
+      - name: Add AGP-compatible API 37 platform alias
+        run: |
+          test -d "$ANDROID_HOME/platforms/android-37.0"
+          ln -sfn android-37.0 "$ANDROID_HOME/platforms/android-37"
 
       - name: Install NDK
         run: |
