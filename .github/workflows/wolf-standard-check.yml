@@ -1,6 +1,9 @@
 name: Wolf Standard Android PR Check
 
 on:
+  push:
+    branches:
+      - wolf-standard-redesign
   pull_request:
     branches:
       - master
@@ -30,7 +33,7 @@ jobs:
         with:
           log-accepted-android-sdk-licenses: false
           cmdline-tools-version: '14742923'
-          packages: 'platforms;android-37.0 build-tools;37.0.0 platform-tools'
+          packages: 'platforms;android-37 build-tools;37.0.0 platform-tools'
 
       - name: Install NDK
         run: |
