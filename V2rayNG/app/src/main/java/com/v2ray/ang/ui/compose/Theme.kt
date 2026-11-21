@@ -104,7 +104,7 @@ private val DarkColor = darkColorScheme(
 
 // Semantic Colors
 val colorPing = Color(0xFF91AA9D) // Muted mint
-val colorPingRed = Color(0xFFFF0099) // Pink Red
+val colorPingRed = Color(0xFFC78F96) // Muted rose
 val colorConfigType = Color(0xFF718A99) // Steel
 val colorFabActive = Color(0xFFD9E1E6) // Silver
 val colorFabInactiveLight = Color(0xFF9C9C9C) // Gray
@@ -117,7 +117,7 @@ val toastNormalBgLight = Color(0xD9353A3E) // Dark Gray
 val toastNormalBgDark = Color(0xD94A4F54) // Darker Gray
 val toastSuccessBg = Color(0xD9388E3C) // Green
 val toastErrorBg = Color(0xD9D50000) // Red
-val toastInfoBg = Color(0xD93F51B5) // Indigo Blue
+val toastInfoBg = Color(0xD9475A67) // Steel
 val toastIconCircleBg = Color(0x33FFFFFF) // Semi-transparent White
 val toastTextColor = Color.White // White
 
