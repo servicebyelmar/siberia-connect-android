@@ -69,7 +69,7 @@ import java.util.concurrent.ConcurrentHashMap
 class ScActivity : ComponentActivity() {
 
     companion object {
-        const val BRAND_BG = 0xFF0B0D10.toInt()
+        const val BRAND_BG = 0xFF061320.toInt()
         const val PRIMARY_HOST = "sibirapp.duckdns.org"
         const val FALLBACK_HOST = "sibir-cloud-api.ru:9443"
         const val PRIMARY_HOME = "https://$PRIMARY_HOST/app/?native=1"
