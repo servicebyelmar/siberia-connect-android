@@ -48,6 +48,7 @@ import com.v2ray.ang.ui.compose.SettingsEditItem
 import com.v2ray.ang.ui.compose.SettingsListItem
 import com.v2ray.ang.ui.compose.SettingsMenuItem
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
+import com.v2ray.ang.ui.compose.ThemeManager
 import com.v2ray.ang.ui.compose.verticalScrollbar
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
