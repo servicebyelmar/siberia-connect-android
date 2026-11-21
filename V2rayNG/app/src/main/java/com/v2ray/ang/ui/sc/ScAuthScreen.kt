@@ -117,8 +117,8 @@ private fun QrBlock(st: ScActivationUiState, onRefresh: () -> Unit, modifier: Mo
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     when (st.pair) {
                         PairPhase.Loading -> Text(stringResource(R.string.sc_auth_loading), color = Color(0xFF10151A))
-                        PairPhase.Expired -> Text(stringResource(R.string.sc_auth_expired), color = Color(0xFF1B2B44))
-                        PairPhase.Error -> Text(stringResource(R.string.sc_auth_pair_error), color = Color(0xFF1B2B44))
+                        PairPhase.Expired -> Text(stringResource(R.string.sc_auth_expired), color = Color(0xFFC9B88F))
+                        PairPhase.Error -> Text(stringResource(R.string.sc_auth_pair_error), color = Color(0xFFC78F96))
                         PairPhase.Waiting -> Unit
                     }
                     if (st.pair != PairPhase.Loading) {
