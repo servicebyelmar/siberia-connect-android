@@ -1,6 +1,21 @@
 package com.v2ray.ang.ui.sc
 
 import android.content.Intent
+import android.animation.ValueAnimator
+import android.os.Build
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
+import coil3.compose.AsyncImage
 import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -86,6 +101,40 @@ fun ScAuthContent(
     }
 }
 
+/**
+ * Siberian Wolf on TV and native activation screens.
+ * Offline vector fallback; responsive sizing; the breathing effect obeys Android's
+ * system "remove animations" preference. No pairing, auth or VPN state changes.
+ */
+@Composable
+private fun WolfIdentity() {
+    val wide = LocalConfiguration.current.screenWidthDp >= 600
+    val animationsEnabled = Build.VERSION.SDK_INT < 26 || ValueAnimator.areAnimatorsEnabled()
+    val transition = rememberInfiniteTransition(label = "wolf-breathing")
+    val scale by transition.animateFloat(
+        initialValue = 0.985f,
+        targetValue = 1.025f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "wolf-scale",
+    )
+    val motionScale = if (animationsEnabled) scale else 1f
+    AsyncImage(
+        model = "https://sibir-cloud-api.site/app/img/wolf-idle.webp",
+        contentDescription = "Сибирский Волк — Siberia Connect",
+        placeholder = painterResource(id = R.drawable.ic_wolf_foreground),
+        error = painterResource(id = R.drawable.ic_wolf_foreground),
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .size(if (wide) 144.dp else 110.dp)
+            .clip(CircleShape)
+            .border(1.dp, SiberiaColors.Accent, CircleShape)
+            .graphicsLayer(scaleX = motionScale, scaleY = motionScale),
+    )
+}
+
 @Composable
 private fun Card(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
@@ -162,6 +211,7 @@ private fun KeyBlock(
     val clipboard = LocalClipboardManager.current
     val err = st.error ?: if (st.networkError) stringResource(R.string.sc_act_network) else null
     Card(modifier) {
+        WolfIdentity()
         Text(stringResource(R.string.sc_auth_key_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         OutlinedTextField(
             value = st.code,
