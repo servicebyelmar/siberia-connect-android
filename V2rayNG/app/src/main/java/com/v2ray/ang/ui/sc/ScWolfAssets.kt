@@ -16,7 +16,7 @@ internal class ScWolfAssets(private val context: Context) {
     companion object {
         const val HOST = "sc-assets.local"
         const val BASE = "https://$HOST/"
-        private val NAME = Regex("^wolf_[a-z]+\\.(mp4|mp3|jpg)$")
+        private val NAME = Regex("^wolf[-_][a-z]+\\.(mp4|mp3|jpg|webp|ogg)$")
         private val RANGE = Regex("^bytes=(\\d*)-(\\d*)$")
     }
 
@@ -29,7 +29,7 @@ internal class ScWolfAssets(private val context: Context) {
         val path = "wolf/$name"
         val total = runCatching { context.assets.open(path).use { it.available().toLong() } }.getOrNull()
             ?: return response(404, "Not Found", "text/plain", emptyMap(), null)  // например, TV-сборка без роликов
-        val mime = when (name.substringAfterLast('.')) { "mp4" -> "video/mp4"; "mp3" -> "audio/mpeg"; else -> "image/jpeg" }
+        val mime = when (name.substringAfterLast('.')) { "mp4" -> "video/mp4"; "mp3" -> "audio/mpeg"; "webp" -> "image/webp"; "ogg" -> "audio/ogg"; else -> "image/jpeg" }
         val headers = mutableMapOf("Accept-Ranges" to "bytes", "Access-Control-Allow-Origin" to "*")
 
         val m = request.requestHeaders.entries.firstOrNull { it.key.equals("Range", true) }?.value?.let { RANGE.matchEntire(it.trim()) }

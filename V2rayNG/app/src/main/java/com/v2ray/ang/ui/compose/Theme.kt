@@ -25,77 +25,77 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 private val LightColor = lightColorScheme(
-    primary = Color(0xFF13191F), // Graphite
+    primary = Color(0xFF0A344C), // Graphite
     onPrimary = Color(0xFFEEF2F5), // Soft white
-    primaryContainer = Color(0xFFD9E1E6), // Silver
-    onPrimaryContainer = Color(0xFF10151A), // Graphite
-    secondary = Color(0xFF718A99), // Steel
+    primaryContainer = Color(0xFFC8EDF8), // Silver
+    onPrimaryContainer = Color(0xFF092B3C), // Graphite
+    secondary = Color(0xFF26799D), // Steel
     onSecondary = Color(0xFFFFFFFF), // White
-    secondaryContainer = Color(0xFFE5EAED), // Silver surface
-    onSecondaryContainer = Color(0xFF1A2229), // Graphite
-    tertiary = Color(0xFF5E7D6D), // Muted forest
+    secondaryContainer = Color(0xFFD9EDF5), // Silver surface
+    onSecondaryContainer = Color(0xFF0A354C), // Graphite
+    tertiary = Color(0xFF237D69), // Muted forest
     onTertiary = Color(0xFFFFFFFF), // White
-    tertiaryContainer = Color(0xFFDCE8E1), // Pale mint
+    tertiaryContainer = Color(0xFFD5F2E9), // Pale mint
     onTertiaryContainer = Color(0xFF18362A), // Forest
     error = Color(0xFFBA1A1A), // Red
     errorContainer = Color(0xFFFFDAD6), // Light Red
     onError = Color(0xFFFFFFFF), // White
     onErrorContainer = Color(0xFF410002), // Dark Red
-    background = Color(0xFFFFFFFF), // White
-    onBackground = Color(0xFF1C1B1F), // Near Black
-    surface = Color(0xFFFFFFFF), // White
-    onSurface = Color(0xFF1C1B1F), // Near Black
-    surfaceVariant = Color(0xFFE8EDF0), // Cool gray
-    onSurfaceVariant = Color(0xFF53636D), // Steel
-    outline = Color(0xFF77858E), // Steel outline
-    outlineVariant = Color(0xFFD2DCE1), // Silver line
+    background = Color(0xFFF3F9FC), // White
+    onBackground = Color(0xFF0D2A3B), // Near Black
+    surface = Color(0xFFF8FCFE), // White
+    onSurface = Color(0xFF0D2A3B), // Near Black
+    surfaceVariant = Color(0xFFE1EFF5), // Cool gray
+    onSurfaceVariant = Color(0xFF3F667C), // Steel
+    outline = Color(0xFF779FB3), // Steel outline
+    outlineVariant = Color(0xFFC6DBE6), // Silver line
     inverseSurface = Color(0xFF313033), // Dark Gray
     inverseOnSurface = Color(0xFFF4EFF4), // Very Light Gray
-    inversePrimary = Color(0xFFD9E1E6), // Silver
+    inversePrimary = Color(0xFF8BDEFA), // Silver
     scrim = Color(0xFF000000), // Black
-    surfaceTint = Color(0xFF53636D), // Steel
+    surfaceTint = Color(0xFF26799D), // Steel
     surfaceContainerLowest = Color(0xFFFFFFFF), // White
-    surfaceContainerLow = Color(0xFFF7F7F7), // Very Light Gray
-    surfaceContainer = Color(0xFFF1F1F1), // Light Gray
-    surfaceContainerHigh = Color(0xFFEBEBEB), // Light Gray
-    surfaceContainerHighest = Color(0xFFE5E5E5), // Light Gray
+    surfaceContainerLow = Color(0xFFF1F8FB), // Very Light Gray
+    surfaceContainer = Color(0xFFEAF3F8), // Light Gray
+    surfaceContainerHigh = Color(0xFFDEEEF5), // Light Gray
+    surfaceContainerHighest = Color(0xFFD4E8F1), // Light Gray
 )
 
 private val DarkColor = darkColorScheme(
-    primary = Color(0xFFD9E1E6), // Silver
-    onPrimary = Color(0xFF10151A), // Graphite
-    primaryContainer = Color(0xFF26313A), // Steel
-    onPrimaryContainer = Color(0xFFEEF2F5), // Soft white
-    secondary = Color(0xFF718A99), // Steel
-    onSecondary = Color(0xFF10151A), // Graphite
-    secondaryContainer = Color(0xFF26343D), // Steel surface
-    onSecondaryContainer = Color(0xFFD9E1E6), // Silver
-    tertiary = Color(0xFF91AA9D), // Muted mint
-    onTertiary = Color(0xFF00382E), // Dark Teal
-    tertiaryContainer = Color(0xFF263B35), // Muted forest
-    onTertiaryContainer = Color(0xFFC8D7CF), // Pale mint
+    primary = Color(0xFF7DDFFF), // Silver
+    onPrimary = Color(0xFF061625), // Graphite
+    primaryContainer = Color(0xFF143C54), // Steel
+    onPrimaryContainer = Color(0xFFF4FBFF), // Soft white
+    secondary = Color(0xFFA6CADC), // Steel
+    onSecondary = Color(0xFF0A2739), // Graphite
+    secondaryContainer = Color(0xFF15394D), // Steel surface
+    onSecondaryContainer = Color(0xFFD7F3FC), // Silver
+    tertiary = Color(0xFF57D6B4), // Muted mint
+    onTertiary = Color(0xFF07352B), // Dark Teal
+    tertiaryContainer = Color(0xFF0F4038), // Muted forest
+    onTertiaryContainer = Color(0xFFCBF6E8), // Pale mint
     error = Color(0xFFFFB4AB), // Light Red
     errorContainer = Color(0xFF93000A), // Dark Red
     onError = Color(0xFF690005), // Deep Red
     onErrorContainer = Color(0xFFFFDAD6), // Light Red
-    background = Color(0xFF0B0D10), // Graphite
-    onBackground = Color(0xFFEEF2F5), // Soft white
-    surface = Color(0xFF0B0D10), // Graphite
-    onSurface = Color(0xFFEEF2F5), // Soft white
-    surfaceVariant = Color(0xFF1A2229), // Panel
-    onSurfaceVariant = Color(0xFFA9B5BD), // Muted text
-    outline = Color(0xFF53636D), // Steel outline
-    outlineVariant = Color(0xFF29343B), // Subtle outline
+    background = Color(0xFF061320), // Graphite
+    onBackground = Color(0xFFF1F8FC), // Soft white
+    surface = Color(0xFF0B1C2A), // Graphite
+    onSurface = Color(0xFFF1F8FC), // Soft white
+    surfaceVariant = Color(0xFF183449), // Panel
+    onSurfaceVariant = Color(0xFFB0C9D8), // Muted text
+    outline = Color(0xFF3B708A), // Steel outline
+    outlineVariant = Color(0xFF245168), // Subtle outline
     inverseSurface = Color(0xFFE6E1E5), // Light Gray
     inverseOnSurface = Color(0xFF1C1B1F), // Near Black
-    inversePrimary = Color(0xFF718A99), // Steel
+    inversePrimary = Color(0xFF8CCFEC), // Steel
     scrim = Color(0xFF000000), // Black
-    surfaceTint = Color(0xFFD9E1E6), // Silver
-    surfaceContainerLowest = Color(0xFF080A0D), // Deep graphite
-    surfaceContainerLow = Color(0xFF10151A), // Graphite panel
-    surfaceContainer = Color(0xFF13191F), // Card
-    surfaceContainerHigh = Color(0xFF1A2229), // Raised card
-    surfaceContainerHighest = Color(0xFF222D35), // Highest card
+    surfaceTint = Color(0xFF7DDFFF), // Silver
+    surfaceContainerLowest = Color(0xFF050D17), // Deep graphite
+    surfaceContainerLow = Color(0xFF0A1B2A), // Graphite panel
+    surfaceContainer = Color(0xFF102A3B), // Card
+    surfaceContainerHigh = Color(0xFF183A50), // Raised card
+    surfaceContainerHighest = Color(0xFF214C64), // Highest card
 )
 
 // Semantic Colors
@@ -195,24 +195,25 @@ fun AppTheme(
 
 /**
  * Фирменная «арктическая» палитра Siberia Connect — те же цвета, что в кабинете (Windows / Mini App / Android WebView):
- * фон #0B0D10, карточки #13191F, акцент #D9E1E6. Системные динамические цвета по умолчанию отключены, чтобы брендовая палитра оставалась единой.
+ * фон #061320, карточки #102A3B, акцент #7DDFFF. Системные динамические цвета по умолчанию отключены, чтобы брендовая палитра оставалась единой.
  */
 object SiberiaColors {
-    val Bg = Color(0xFF0B0D10)
-    val Card = Color(0xFF13191F)
-    val Border = Color(0xFF53636D)
-    val Accent = Color(0xFFD9E1E6)
-    val AccentDeep = Color(0xFF718A99)
-    val Text = Color(0xFFEEF2F5)
-    val Muted = Color(0xFFA9B5BD)
-    val Ok = Color(0xFF91AA9D)
+    // Aurora Signature: the same optical hierarchy as the website and Mini App.
+    val Bg = Color(0xFF061320)
+    val Card = Color(0xFF102A3B)
+    val Border = Color(0xFF3B708A)
+    val Accent = Color(0xFF7DDFFF)
+    val AccentDeep = Color(0xFFA6CADC)
+    val Text = Color(0xFFF1F8FC)
+    val Muted = Color(0xFFB0C9D8)
+    val Ok = Color(0xFF57D6B4)
     val Err = Color(0xFFFF6B7A)
 }
 
 private val ArcticScheme = darkColorScheme(
     primary = SiberiaColors.Accent,
-    onPrimary = Color(0xFF10151A),
-    primaryContainer = Color(0xFF26313A),
+    onPrimary = Color(0xFF061625),
+    primaryContainer = Color(0xFF143C54),
     onPrimaryContainer = SiberiaColors.Text,
     secondary = SiberiaColors.AccentDeep,
     onSecondary = Color(0xFF10151A),
@@ -226,9 +227,9 @@ private val ArcticScheme = darkColorScheme(
     surfaceVariant = SiberiaColors.Card,
     onSurfaceVariant = SiberiaColors.Muted,
     outline = SiberiaColors.Border,
-    outlineVariant = Color(0xFF29343B),
+    outlineVariant = Color(0xFF245168),
     surfaceContainer = SiberiaColors.Card,
-    surfaceContainerHigh = Color(0xFF1A2229),
+    surfaceContainerHigh = Color(0xFF183A50),
 )
 
 @Composable
