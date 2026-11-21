@@ -93,12 +93,18 @@ jobs:
             -o /dev/null -w "Kotlin plugin marker HTTP %{http_code}\\n" \
             "https://plugins.gradle.org/m2/org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.4.21/org.jetbrains.kotlin.android.gradle.plugin-2.4.21.pom"
 
+      - name: Verify Kotlin Gradle plugin availability
+        run: |
+          curl --retry 3 --retry-all-errors --fail --silent --show-error \
+            -o /dev/null -w "Kotlin plugin marker HTTP %{http_code}\\n" \
+            "https://plugins.gradle.org/m2/org/jetbrains/kotlin/android/org.jetbrains.kotlin.android.gradle.plugin/2.4.21/org.jetbrains.kotlin.android.gradle.plugin-2.4.21.pom"
+
       - name: Run auth-screen unit tests
         run: |
           cd "${{ github.workspace }}/V2rayNG"
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
           chmod 755 gradlew
-          ./gradlew testPlaystoreMobileDebugUnitTest --tests "com.v2ray.ang.ui.sc.*" --no-daemon --refresh-dependencies --stacktrace --info
+          ./gradlew testPlaystoreMobileDebugUnitTest --tests "com.v2ray.ang.ui.sc.*" --no-daemon --refresh-dependencies --stacktrace --info --refresh-dependencies --stacktrace --info
 
       - name: Build mobile and TV debug APKs
         run: |
