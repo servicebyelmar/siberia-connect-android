@@ -166,6 +166,7 @@ android {
         unitTests.isIncludeAndroidResources = true
         unitTests.all {
             it.useJUnitPlatform()
+            it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
             // Treat Jupiter discovery warnings as failures: JUnit 4 failed on an invalid @Test
             // method, such as one that returns a value, while Jupiter only warns and skips it.
             // The key is @API(status = EXPERIMENTAL) in JUnit 6; after a JUnit upgrade, check
