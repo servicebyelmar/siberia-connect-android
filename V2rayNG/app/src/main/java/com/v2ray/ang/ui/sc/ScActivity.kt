@@ -450,12 +450,13 @@ class ScActivity : ComponentActivity() {
         val out = JSONObject().put("type", "sub")
         if (!ScLock.isAllowedSubUrl(url)) return out.put("ok", false).put("error", ScLock.DENIED_KEY)
         val existing = ourSub()
-        val item = existing?.subscription ?: SubscriptionItem()
+        val item = existing?.subscription?.copy() ?: SubscriptionItem()
         item.remarks = SUB_NAME
         item.url = url
         item.enabled = true
         item.autoUpdate = true
         item.updateInterval = 60
+        item.filter = null
         item.requestHeaders = JSONObject()
             .put("x-hwid", devId())
             .put("x-device-os", "Android")
@@ -465,6 +466,10 @@ class ScActivity : ComponentActivity() {
         MmkvManager.encodeSubscription(existing?.guid ?: "", item)
         val sub = ourSub() ?: return out.put("ok", false).put("error", "Не удалось сохранить подписку")
         val res = AngConfigManager.updateConfigViaSub(sub)
+        if (res.successCount == 0) {
+            existing?.let { MmkvManager.encodeSubscription(it.guid, it.subscription) }
+            return out.put("ok", false).put("error", "Не удалось обновить список серверов")
+        }
         runCatching { SubscriptionUpdater.syncOne(applicationContext, sub.guid) }
         val list = MmkvManager.decodeServerList(sub.guid)
         val sel = MmkvManager.getSelectServer()
@@ -511,7 +516,12 @@ class ScActivity : ComponentActivity() {
     private fun applyActiveLink(st: JSONObject?) {
         if (st?.optString("state") != "active") return
         val link = st.optString("link")
-        if (ScLock.isAllowedSubUrl(link) && link !in ScLock.subCandidates(ourSub()?.subscription?.url)) applySubAny(link)
+        val subscription = ourSub()?.subscription
+        if (ScLock.isAllowedSubUrl(link) &&
+            (ScLock.needsSubUpdate(subscription?.url, link) || !subscription?.filter.isNullOrBlank())
+        ) {
+            applySubAny(link)
+        }
     }
 
     /**
@@ -1023,6 +1033,9 @@ class ScActivity : ComponentActivity() {
         /** Адрес, по которому страница берёт файлы анимации логотипа (их отдаёт приложение, см. ScWolfAssets). */
         @JavascriptInterface
         fun assetBase(): String = ScWolfAssets.BASE
+
+        @JavascriptInterface
+        fun wolfMediaVersion(): Int = 1
 
         /** Тактильный отклик в момент начала подключения. */
         @JavascriptInterface

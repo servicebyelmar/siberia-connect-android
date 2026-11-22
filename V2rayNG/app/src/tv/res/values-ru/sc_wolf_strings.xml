@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sc_tv_wolf_play">Воспроизвести вой волка</string>
+    <string name="sc_tv_wolf_sound_on">Звук волка: вкл</string>
+    <string name="sc_tv_wolf_sound_off">Звук волка: выкл</string>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animation-list xmlns:android="http://schemas.android.com/apk/res/android" android:oneshot="true">
+    <item android:drawable="@drawable/sc_tv_wolf_howl_0" android:duration="850" />
+    <item android:drawable="@drawable/sc_tv_wolf_howl_1" android:duration="850" />
+    <item android:drawable="@drawable/sc_tv_wolf_howl_2" android:duration="400" />
+    <item android:drawable="@drawable/sc_tv_wolf_howl_3" android:duration="400" />
+    <item android:drawable="@drawable/sc_tv_wolf_howl_4" android:duration="400" />
+    <item android:drawable="@drawable/sc_tv_wolf_howl_5" android:duration="450" />
+    <item android:drawable="@drawable/sc_tv_wolf_howl_6" android:duration="500" />
+    <item android:drawable="@drawable/sc_tv_wolf_howl_7" android:duration="550" />
+    <item android:drawable="@drawable/sc_tv_wolf_howl_8" android:duration="500" />
+</animation-list>

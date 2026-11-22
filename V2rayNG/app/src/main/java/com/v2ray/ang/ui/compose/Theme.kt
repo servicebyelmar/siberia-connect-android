@@ -198,15 +198,15 @@ fun AppTheme(
  * фон #0B0D10, карточки #13191F, акцент #D9E1E6. Системные динамические цвета по умолчанию отключены, чтобы брендовая палитра оставалась единой.
  */
 object SiberiaColors {
-    val Bg = Color(0xFF0B0D10)
-    val Card = Color(0xFF13191F)
-    val Border = Color(0xFF53636D)
-    val Accent = Color(0xFFD9E1E6)
-    val AccentDeep = Color(0xFF718A99)
-    val Text = Color(0xFFEEF2F5)
-    val Muted = Color(0xFFA9B5BD)
-    val Ok = Color(0xFF91AA9D)
-    val Err = Color(0xFFFF6B7A)
+    val Bg = Color(0xFF050C15)
+    val Card = Color(0xFF101F2B)
+    val Border = Color(0xFF405969)
+    val Accent = Color(0xFF62DBF7)
+    val AccentDeep = Color(0xFF86ABBA)
+    val Text = Color(0xFFF2F7FA)
+    val Muted = Color(0xFFABC0CD)
+    val Ok = Color(0xFF57D6B4)
+    val Err = Color(0xFFF09AA6)
 }
 
 private val ArcticScheme = darkColorScheme(

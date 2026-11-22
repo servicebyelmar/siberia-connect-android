@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sc_tv_wolf_play">Play the wolf howl</string>
+    <string name="sc_tv_wolf_sound_on">Wolf sound: on</string>
+    <string name="sc_tv_wolf_sound_off">Wolf sound: off</string>
+</resources>

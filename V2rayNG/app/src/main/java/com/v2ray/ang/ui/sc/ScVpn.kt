@@ -50,12 +50,13 @@ object ScVpn {
         val out = JSONObject().put("type", "sub")
         if (!ScLock.isAllowedSubUrl(url)) return out.put("ok", false).put("error", ScLock.DENIED_KEY)
         val existing = ourSub()
-        val item = existing?.subscription ?: SubscriptionItem()
+        val item = existing?.subscription?.copy() ?: SubscriptionItem()
         item.remarks = ScLock.SUB_NAME
         item.url = url
         item.enabled = true
         item.autoUpdate = true
         item.updateInterval = 60
+        item.filter = null
         item.requestHeaders = JSONObject()
             .put("x-hwid", did)
             .put("x-device-os", "Android")
@@ -65,6 +66,10 @@ object ScVpn {
         MmkvManager.encodeSubscription(existing?.guid ?: "", item)
         val sub = ourSub() ?: return out.put("ok", false).put("error", "Не удалось сохранить подписку")
         val res = AngConfigManager.updateConfigViaSub(sub)
+        if (res.successCount == 0) {
+            existing?.let { MmkvManager.encodeSubscription(it.guid, it.subscription) }
+            return out.put("ok", false).put("error", "Не удалось обновить список серверов")
+        }
         runCatching { SubscriptionUpdater.syncOne(ctx.applicationContext, sub.guid) }
         val list = MmkvManager.decodeServerList(sub.guid)
         val sel = MmkvManager.getSelectServer()
@@ -95,7 +100,8 @@ object ScVpn {
         if (st?.optString("state") != "active") return false
         val link = st.optString("link")
         if (!ScLock.isAllowedSubUrl(link)) return false
-        if (link in ScLock.subCandidates(ourSub()?.subscription?.url)) return false
+        val subscription = ourSub()?.subscription
+        if (!ScLock.needsSubUpdate(subscription?.url, link) && subscription?.filter.isNullOrBlank()) return false
         return applySubAny(ctx, did, link).optBoolean("ok")
     }
 

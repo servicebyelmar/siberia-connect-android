@@ -1,12 +1,17 @@
 package com.v2ray.ang.ui.sc
 
+import android.animation.ValueAnimator
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.AnimationDrawable
 import android.graphics.drawable.GradientDrawable
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.MediaPlayer
 import android.net.Uri
 import android.net.VpnService
 import android.os.Build
@@ -15,6 +20,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -32,10 +38,12 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.BuildConfig
+import com.v2ray.ang.R
 import com.v2ray.ang.core.LauncherManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.helper.MessageHelper
+import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -74,6 +82,12 @@ class ScTvActivity : ComponentActivity() {
     private lateinit var btnBoot: Button
     private lateinit var btnUpdate: Button
     private lateinit var btnLogout: Button
+    private lateinit var wolf: ImageView
+    private var wolfAudio: MediaPlayer? = null
+    private val restoreWolf = Runnable {
+        (wolf.drawable as? AnimationDrawable)?.stop()
+        wolf.setImageResource(R.drawable.sc_tv_wolf)
+    }
 
     private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
         if (res.resultCode == RESULT_OK) startCore() else { busy = false; refreshUi() }
@@ -112,23 +126,78 @@ class ScTvActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    override fun onStop() {
+        if (::wolf.isInitialized) {
+            wolf.removeCallbacks(restoreWolf)
+            restoreWolf.run()
+        }
+        releaseWolfAudio()
+        super.onStop()
+    }
+
+    private fun releaseWolfAudio() {
+        wolfAudio?.release()
+        wolfAudio = null
+    }
+
+    private fun playWolf() {
+        wolf.removeCallbacks(restoreWolf)
+        restoreWolf.run()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()) {
+            wolf.setImageResource(R.drawable.sc_tv_wolf_motion)
+            val motion = wolf.drawable as AnimationDrawable
+            motion.start()
+            wolf.postDelayed(restoreWolf, (0 until motion.numberOfFrames).sumOf { motion.getDuration(it).toLong() })
+        }
+        releaseWolfAudio()
+        if (!appPrefs.getBoolean("wolf_sound", true)) return
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build()
+        try {
+            wolfAudio = MediaPlayer.create(this, R.raw.sc_tv_wolf_howl, attributes, AudioManager.AUDIO_SESSION_ID_GENERATE)
+            wolfAudio?.apply {
+                setVolume(.75f, .75f)
+                setOnCompletionListener { if (wolfAudio === it) releaseWolfAudio() }
+                setOnErrorListener { player, what, extra ->
+                    LogUtil.e(AppConfig.TAG, "TV wolf sound playback failed ($what, $extra)")
+                    if (wolfAudio === player) releaseWolfAudio()
+                    true
+                }
+                start()
+            }
+        } catch (error: IllegalStateException) {
+            LogUtil.e(AppConfig.TAG, "TV wolf sound could not start", error)
+            releaseWolfAudio()
+        }
+    }
+
     // ───────────── разметка ─────────────
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
     private fun bg(hex: String, stroke: Boolean = false) = GradientDrawable().apply {
         setColor(Color.parseColor(hex)); cornerRadius = dp(14).toFloat()
-        if (stroke) setStroke(dp(4), Color.WHITE)
+        if (stroke) setStroke(dp(4), Color.parseColor("#A3F1FF"))
     }
 
     private fun lp(top: Int = 0) =
         LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(top) }
 
-    private fun tvButton(label: String, normal: String, focused: String, size: Float = 18f): Button = Button(this).apply {
+    private fun tvButton(label: String, normal: String, focused: String, size: Float = 24f, primary: Boolean = false): Button = Button(this).apply {
         text = label; textSize = size; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.WHITE); isAllCaps = false
-        isFocusable = true; isFocusableInTouchMode = true; setPadding(dp(24), dp(16), dp(24), dp(16)); background = bg(normal)
+        minHeight = dp(64); isFocusable = true; isFocusableInTouchMode = true; setPadding(dp(24), dp(16), dp(24), dp(16)); background = bg(normal)
+        if (primary) {
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFFBDF6FF.toInt(), 0xFF62DBF7.toInt()))
+                .apply { cornerRadius = dp(14).toFloat() }
+            setTextColor(0xFF061726.toInt())
+        }
         setOnFocusChangeListener { v, f ->
-            v.background = bg(if (f) focused else normal, f)
+            v.background = if (primary && !f) GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFFBDF6FF.toInt(), 0xFF62DBF7.toInt())
+            ).apply { cornerRadius = dp(14).toFloat() } else bg(if (f) focused else normal, f)
+            if (primary) setTextColor(if (f) Color.WHITE else 0xFF061726.toInt())
             v.scaleX = if (f) 1.04f else 1f; v.scaleY = if (f) 1.04f else 1f
         }
     }
@@ -138,16 +207,54 @@ class ScTvActivity : ComponentActivity() {
     }
 
     private fun buildLayout() {
-        val root = ScrollView(this).apply { setBackgroundColor(Color.parseColor("#0B1120")); isFillViewport = true }
+        val root = ScrollView(this).apply { setBackgroundColor(Color.parseColor("#050C15")); isFillViewport = true }
         val page = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(dp(56), dp(32), dp(56), dp(32))
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
         }
         val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        head.addView(text("SIBERIA CONNECT TV", 26f, bold = true).apply { layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
+        head.addView(text("Siberia Connect TV", 32f, bold = true).apply { layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
         head.addView(text("v${BuildConfig.VERSION_NAME}", 15f, "#94A3B8"))
         page.addView(head, lp())
+        wolf = ImageView(this).apply {
+            setImageResource(R.drawable.sc_tv_wolf)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            clipToOutline = true
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                colors = intArrayOf(0xFF152B3D.toInt(), 0xFF081523.toInt())
+                gradientType = GradientDrawable.RADIAL_GRADIENT
+                gradientRadius = dp(82).toFloat()
+                setStroke(dp(2), 0xFF62DBF7.toInt())
+            }
+            contentDescription = getString(R.string.sc_tv_wolf_play)
+            isFocusable = true
+            isFocusableInTouchMode = true
+            setOnClickListener { playWolf() }
+            setOnFocusChangeListener { view, focused ->
+                (view.background as GradientDrawable).setStroke(dp(if (focused) 4 else 2),
+                    if (focused) 0xFFA3F1FF.toInt() else 0xFF62DBF7.toInt())
+            }
+        }
+        val wolfRow = FrameLayout(this).apply {
+            addView(wolf, FrameLayout.LayoutParams(dp(156), dp(156), Gravity.CENTER))
+            val sound = tvButton("", "#152B3D", "#334155")
+            fun updateSound() {
+                val enabled = appPrefs.getBoolean("wolf_sound", true)
+                sound.setText(if (enabled) R.string.sc_tv_wolf_sound_on else R.string.sc_tv_wolf_sound_off)
+            }
+            updateSound()
+            sound.setOnClickListener {
+                val enabled = !appPrefs.getBoolean("wolf_sound", true)
+                appPrefs.edit().putBoolean("wolf_sound", enabled).apply()
+                if (!enabled) releaseWolfAudio()
+                updateSound()
+            }
+            addView(sound, FrameLayout.LayoutParams(-2, -2, Gravity.END or Gravity.CENTER_VERTICAL))
+        }
+        page.addView(wolfRow, lp(16))
 
-        btnUpdate = tvButton("ДОСТУПНО ОБНОВЛЕНИЕ — НАЖМИТЕ ОК", "#D97706", "#F59E0B").apply {
+        btnUpdate = tvButton("Установить обновление", "#715521", "#805E23").apply {
             visibility = View.GONE; setOnClickListener { downloadUpdate() }
         }
         page.addView(btnUpdate, lp(16))
@@ -168,23 +275,34 @@ class ScTvActivity : ComponentActivity() {
 
         // ── главный экран ──
         mainView = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(32), dp(28), dp(32), dp(28)); background = bg("#111827"); visibility = View.GONE
+            orientation = LinearLayout.VERTICAL; setPadding(dp(32), dp(28), dp(32), dp(28)); background = bg("#101F2B"); visibility = View.GONE
         }
         tvStatus = text("", 28f, bold = true)
-        tvInfo = text("", 17f, "#CBD5E1")
-        tvMsg = text("", 16f, "#FBBF24")
-        btnConnect = tvButton("ПОДКЛЮЧИТЬ VPN", "#0284C7", "#38BDF8", 24f).apply {
-            setPadding(dp(24), dp(26), dp(24), dp(26)); setOnClickListener { toggleVpn() }
+        tvInfo = text("", 24f, "#CBD5E1")
+        tvMsg = text("", 24f, "#E9C37D")
+        btnConnect = tvButton("Подключить", "#005469", "#00677A", primary = true).apply {
+            setPadding(dp(24), dp(26), dp(24), dp(26))
+            setOnClickListener {
+                if (!busy && !running) playWolf()
+                toggleVpn()
+            }
         }
-        btnLoc = tvButton("", "#1E293B", "#334155").apply { setOnClickListener { cycleLocation() } }
-        btnBoot = tvButton("", "#1E293B", "#334155").apply {
+        btnLoc = tvButton("", "#152B3D", "#334155").apply { setOnClickListener { cycleLocation() } }
+        btnBoot = tvButton("", "#152B3D", "#334155").apply {
             setOnClickListener { MmkvManager.encodeStartOnBoot(!MmkvManager.decodeStartOnBoot()); refreshUi() }
         }
-        btnLogout = tvButton("ВЫЙТИ ИЗ АККАУНТА", "#1E293B", "#7F1D1D", 15f).apply { setOnClickListener { signedOut("вы вышли") } }
+        btnLogout = tvButton("Выйти из аккаунта", "#152B3D", "#7F1D1D", 24f).apply { setOnClickListener { signedOut("вы вышли") } }
         mainView.addView(tvStatus); mainView.addView(tvInfo, lp(6)); mainView.addView(tvMsg, lp(6))
         mainView.addView(btnConnect, lp(22)); mainView.addView(btnLoc, lp(14)); mainView.addView(btnBoot, lp(10)); mainView.addView(btnLogout, lp(10))
         page.addView(mainView, lp(24))
 
+        root.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
+            val horizontal = (right - left) / 20
+            val vertical = (bottom - top) / 20
+            if (page.paddingLeft != horizontal || page.paddingTop != vertical) {
+                page.setPadding(horizontal, vertical, horizontal, vertical)
+            }
+        }
         root.addView(page)
         setContentView(root)
     }
@@ -208,16 +326,27 @@ class ScTvActivity : ComponentActivity() {
 
     private fun refreshUi() = runOnUiThread {
         when {
-            busy -> { tvStatus.text = "● ПОДКЛЮЧЕНИЕ…"; tvStatus.setTextColor(Color.parseColor("#FBBF24")); btnConnect.text = "ПОДОЖДИТЕ…" }
-            running -> { tvStatus.text = "● VPN ВКЛЮЧЁН"; tvStatus.setTextColor(Color.parseColor("#4ADE80")); btnConnect.text = "ОТКЛЮЧИТЬ VPN" }
-            else -> { tvStatus.text = "● VPN ВЫКЛЮЧЕН"; tvStatus.setTextColor(Color.parseColor("#F87171")); btnConnect.text = "ПОДКЛЮЧИТЬ VPN" }
+            busy -> { tvStatus.text = "● Подключение…"; tvStatus.setTextColor(Color.parseColor("#E9C37D")); btnConnect.text = "Подождите…" }
+            running -> { tvStatus.text = "● Подключено"; tvStatus.setTextColor(Color.parseColor("#57D6B4")); btnConnect.text = "Отключить" }
+            else -> { tvStatus.text = "● Отключено"; tvStatus.setTextColor(Color.parseColor("#ABC0CD")); btnConnect.text = "Подключить" }
         }
         val sel = MmkvManager.getSelectServer()
         val name = if (!sel.isNullOrEmpty()) MmkvManager.decodeServerConfig(sel)?.remarks else null
         val auto = appPrefs.getBoolean("auto", true)
-        btnLoc.text = if (auto) "ЛОКАЦИЯ: АВТО (САМЫЙ БЫСТРЫЙ)" else "ЛОКАЦИЯ: ${name ?: "—"}"
-        tvInfo.text = if (!running && !ScVpn.hasSub()) "Ключ ещё не получен — нажмите «Подключить»" else (name?.let { "Сервер: $it" } ?: "")
-        btnBoot.text = if (MmkvManager.decodeStartOnBoot()) "АВТОЗАПУСК ПРИ ВКЛЮЧЕНИИ ТВ: ВКЛ" else "АВТОЗАПУСК ПРИ ВКЛЮЧЕНИИ ТВ: ВЫКЛ"
+        val irbis = name?.contains("Ирбис", ignoreCase = true) == true
+        val title = if (irbis) "Ирбис · Южный" else name
+            ?.split(Regex("\\s*[·•|]\\s*"))
+            ?.filterNot { it in setOf("Нидерланды", "Финляндия", "Россия") }
+            ?.joinToString(" · ")
+        btnLoc.text = if (auto) "Сервер: Автовыбор" else "Сервер: ${title ?: "—"}"
+        val flag = if (irbis && !auto) ContextCompat.getDrawable(this, R.drawable.sc_tv_flag_kz)?.apply {
+            setBounds(0, 0, dp(32), dp(24))
+        } else null
+        btnLoc.setCompoundDrawablesRelative(flag, null, null, null)
+        btnLoc.compoundDrawablePadding = dp(8)
+        tvInfo.text = if (!running && !ScVpn.hasSub()) "Ключ ещё не получен — нажмите «Подключить»" else
+            (title?.let { if (irbis) "$it\nКазахстан · СНГ и сервисы" else "Сервер: $it" } ?: "")
+        btnBoot.text = if (MmkvManager.decodeStartOnBoot()) "Автозапуск включён" else "Автозапуск выключен"
         btnConnect.isEnabled = !busy
     }
 
