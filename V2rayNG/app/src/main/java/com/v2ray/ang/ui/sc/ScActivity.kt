@@ -221,6 +221,9 @@ class ScActivity : ComponentActivity() {
     @Volatile
     private var running = false
 
+    /** diag_v1: только записывает уже известные результаты попыток для вложения в обращение; на подключение не влияет. */
+    private val diag = ScConnectDiag()
+
     private val vpnPermission =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (it.resultCode == RESULT_OK) startCore()
@@ -242,6 +245,7 @@ class ScActivity : ComponentActivity() {
             when (i.getIntExtra("key", 0)) {
                 AppConfig.MSG_STATE_RUNNING, AppConfig.MSG_STATE_START_SUCCESS -> {
                     running = true
+                    diag.connected(ScTelemetry.locationOf(MmkvManager.getSelectServer()))
                     if (prefs.getLong("since", 0L) == 0L) prefs.edit().putLong("since", System.currentTimeMillis()).apply()
                     emit(JSONObject().put("type", "state").put("state", "on"))
                 }
@@ -257,6 +261,7 @@ class ScActivity : ComponentActivity() {
                 }
                 AppConfig.MSG_STATE_START_FAILURE -> {
                     running = false
+                    diag.attempt(ScTelemetry.locationOf(MmkvManager.getSelectServer()), ScConnectDiag.Result.CORE_ERROR)
                     // 1.1.0: в «Авто» один раз за 3 минуты сами пробуем другой сервер
                     if (autoMode() && System.currentTimeMillis() - lastFailover > 180_000L && serverCount() > 1) {
                         lastFailover = System.currentTimeMillis()
@@ -264,6 +269,7 @@ class ScActivity : ComponentActivity() {
                         connectFlow()
                         return
                     }
+                    diag.fail("запуск не удался")
                     // 1.2.7: спокойный короткий статус; технический текст ядра уходит только в журнал отчёта (очищенный)
                     ScTelemetry.log("core start failure: " + i.getStringExtra("content").orEmpty().take(200))
                     ScTelemetry.report(this@ScActivity, ScTelemetryGate.TUNNEL_TIMEOUT, ScTelemetry.locationOf(MmkvManager.getSelectServer()))
@@ -612,6 +618,8 @@ class ScActivity : ComponentActivity() {
                 val st = runCatching { account.status() }.getOrNull()
                 // Сеть/5xx/таймаут (Outcome.NETWORK) ключ не трогают — подключаемся с тем, что есть.
                 val out = account.outcome
+                // diag_v1: статус аккаунта фиксируем только если сервер его подтвердил (при сетевой ошибке st == null)
+                diag.begin(if (out == ScAccount.Outcome.OK) st?.optString("state") else null, autoMode())
                 if (out == ScAccount.Outcome.LOCKED || out == ScAccount.Outcome.REVOKED || out == ScAccount.Outcome.REBIND) {
                     go = false
                     if (out == ScAccount.Outcome.REVOKED) fullLogout("сессия закончилась")      // DEVICE_LOCKED/REBIND: ключ не отозван, не трогаем
@@ -620,6 +628,7 @@ class ScActivity : ComponentActivity() {
                         ScTelemetry.report(this@ScActivity, ScTelemetryGate.DEVICE_LOCKED, ScTelemetry.locationOf(MmkvManager.getSelectServer()))
                     }
                     val msg = if (out != ScAccount.Outcome.REVOKED) "Ключ привязан к другому устройству" else "Ключ больше не действует — введи код активации"
+                    diag.fail(if (out != ScAccount.Outcome.REVOKED) "ключ привязан к другому устройству" else "ключ больше не действует")
                     emit(JSONObject().put("type", "account").put("state", if (out != ScAccount.Outcome.REVOKED) "device_locked" else "no_account").put("message", msg))
                     emit(JSONObject().put("type", "state").put("state", "error").put("error", msg))
                     openActivation()      // при блокировке экран сам покажет таймер
@@ -632,6 +641,7 @@ class ScActivity : ComponentActivity() {
                     if (state in ScAccount.BAD_STATES) {
                         go = false
                         val msg = st.optString("message").ifEmpty { "Нет активной подписки" }
+                        diag.fail("аккаунт не позволяет подключиться")
                         emit(JSONObject().put("type", "account").put("state", state).put("message", msg))
                         emit(JSONObject().put("type", "state").put("state", "error").put("error", msg))
                         if (state == "expired") runOnUiThread {
@@ -693,6 +703,7 @@ class ScActivity : ComponentActivity() {
         rank?.let { connectTimeoutMs = it.connectTimeoutMs }
         // 2) пинг-проба через ядро; перегруженные и недоступные ноды отсеиваем, если остались другие
         val res = measureAll(list)
+        diag.probes(list.mapIndexed { i, g -> ScTelemetry.locationOf(g) to res[i] })
         var ok = list.indices.filter { (res[it] ?: -1L) > 0L }
         if (ok.isEmpty()) return   // никто не ответил — скорее всего, нет интернета; оставляем прежний сервер
         ok.filter { nodeOf(rank, list[it])?.available != false }.takeIf { it.isNotEmpty() }?.let { ok = it }
@@ -720,7 +731,9 @@ class ScActivity : ComponentActivity() {
             val t0 = System.currentTimeMillis()
             while (!running && System.currentTimeMillis() - t0 < limit) kotlinx.coroutines.delay(300)
             val sel = MmkvManager.getSelectServer() ?: return@launch
-            val alive = running && (withTimeoutOrNull(limit) { measureOne(sel) } ?: -1L) > 0L
+            val up = running
+            val alive = up && (withTimeoutOrNull(limit) { measureOne(sel) } ?: -1L) > 0L
+            diag.attempt(ScTelemetry.locationOf(sel), if (alive) ScConnectDiag.Result.OK else if (!up) ScConnectDiag.Result.CORE_TIMEOUT else ScConnectDiag.Result.NO_REPLY)
             if (alive) { triedServers.clear(); return@launch }
             failoverNext(sel)
         }
@@ -731,6 +744,7 @@ class ScActivity : ComponentActivity() {
         triedServers.add(failed)
         val list = MmkvManager.decodeServerList(sub.guid).filter { it !in triedServers }
         if (list.isEmpty()) {       // все опробованы — оставляем как есть
+            diag.fail("резервные узлы закончились")
             triedServers.clear()
             ScTelemetry.log("connect: all servers tried, none answers")
             ScTelemetry.report(this, ScTelemetryGate.TUNNEL_TIMEOUT, ScTelemetry.locationOf(failed))      // 1.2.7: фон
@@ -1063,6 +1077,10 @@ class ScActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun version(): String = BuildConfig.VERSION_NAME
+
+        /** diag_v1: текст диагностики ровно в том виде, в каком его увидит поддержка (кнопка «Приложить диагностику»). */
+        @JavascriptInterface
+        fun diagReport(): String = runCatching { diag.render(BuildConfig.VERSION_NAME) }.getOrDefault("")
 
         @JavascriptInterface
         fun deviceId(): String = devId()
