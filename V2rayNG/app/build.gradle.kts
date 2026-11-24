@@ -77,7 +77,9 @@ android {
         create("icetest") {
             dimension = "form"
             applicationIdSuffix = ".test"
-            versionNameSuffix = "-ice"
+            // выше предыдущей тестовой (792): новый APK ставится поверх неё, данные сохраняются (подпись CI та же)
+            versionCode = 793
+            versionNameSuffix = "-ice2"
             buildConfigField("boolean", "ICE_UI", "true")
         }
     }

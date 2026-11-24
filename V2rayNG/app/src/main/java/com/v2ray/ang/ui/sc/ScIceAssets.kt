@@ -17,6 +17,7 @@ internal class ScIceAssets(private val context: Context) {
     companion object {
         const val PATH = "/sc-ice/"
         private const val ASSET = "ice/index.html"
+        private val FLAG = Regex("""^[a-z]{2,5}\.svg$""")
         private val CABINET_HOSTS = setOf(ScActivity.PRIMARY_HOST, ScActivity.FALLBACK_HOST)
 
         /** Адрес нового интерфейса на основном хосте. */
@@ -33,6 +34,26 @@ internal class ScIceAssets(private val context: Context) {
         if (uri.scheme != "https" || uri.authority !in CABINET_HOSTS) return null
         if (!request.method.equals("GET", true)) return null
         val p = uri.path.orEmpty()
+        // флаги стран — локальные SVG из APK (assets/ice/flags/<код>.svg), сеть не нужна
+        if (p.startsWith(PATH + "flags/")) {
+            val name = p.removePrefix(PATH + "flags/")
+            if (!FLAG.matches(name)) return null
+            val svg = runCatching { context.assets.open("ice/flags/$name") }.getOrNull() ?: return null
+            return WebResourceResponse(
+                "image/svg+xml", "utf-8", 200, "OK",
+                mapOf("Cache-Control" to "max-age=86400", "X-Content-Type-Options" to "nosniff"),
+                svg
+            )
+        }
+        // текстура шерсти для главного экрана (assets/ice/fur.jpg)
+        if (p == PATH + "fur.jpg") {
+            val img = runCatching { context.assets.open("ice/fur.jpg") }.getOrNull() ?: return null
+            return WebResourceResponse(
+                "image/jpeg", null, 200, "OK",
+                mapOf("Cache-Control" to "max-age=86400", "X-Content-Type-Options" to "nosniff"),
+                img
+            )
+        }
         if (p != PATH && p != PATH + "index.html") return null
         val body = runCatching { context.assets.open(ASSET) }.getOrNull() ?: return null
         return WebResourceResponse(
