@@ -14,9 +14,10 @@ android {
         applicationId = "com.siberiaconnect.vpn"
         minSdk = 24
         targetSdk = 37
-        versionCode = 792
-        versionName = "1.3.2"
+        versionCode = 794
+        versionName = "1.4.0"
         buildConfigField("boolean", "ICE_UI", "false")
+        buildConfigField("boolean", "ICE_TEST", "false")
         buildConfigField("String", "GIT_SHA", "\"${gitSha()}\"")
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
@@ -65,12 +66,17 @@ android {
             dimension = "distribution"
             buildConfigField("String", "DISTRIBUTION", "\"Play Store\"")
         }
+        // Официальное приложение: прежний пакет com.siberiaconnect.vpn, интерфейс «Сибирский хребет» встроен в APK (src/icetest/assets/ice)
         create("mobile") {
             dimension = "form"
+            buildConfigField("boolean", "ICE_UI", "true")
         }
         create("tv") {
             dimension = "form"
             applicationIdSuffix = ".tv"
+            // Android TV выпускается отдельно: версия прежняя, дизайн мобильного приложения не затрагивается
+            versionCode = 792
+            versionName = "1.3.2"
         }
         // Тестовая сборка нового интерфейса («ледяной» UI встроен в APK, см. src/icetest/assets/ice):
         // ставится рядом с обычным приложением (…vpn.test), называется «Siberia Connect Тест», не обновляется из прод-канала.
@@ -79,8 +85,10 @@ android {
             applicationIdSuffix = ".test"
             // выше предыдущей тестовой (792): новый APK ставится поверх неё, данные сохраняются (подпись CI та же)
             versionCode = 793
+            versionName = "1.3.2"
             versionNameSuffix = "-ice2"
             buildConfigField("boolean", "ICE_UI", "true")
+            buildConfigField("boolean", "ICE_TEST", "true")
         }
     }
 
@@ -91,6 +99,10 @@ android {
         // тестовая сборка — это мобильная версия: те же ролики волка, что и в flavor mobile
         getByName("icetest") {
             assets.srcDir("src/mobile/assets")
+        }
+        // интерфейс «Сибирский хребет» (index.html, хребет, флаги) — общий для тестового и официального мобильного приложения
+        getByName("mobile") {
+            assets.srcDir("src/icetest/assets")
         }
     }
 

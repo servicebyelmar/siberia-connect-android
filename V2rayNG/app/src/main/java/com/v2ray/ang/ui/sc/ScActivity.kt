@@ -166,6 +166,9 @@ class ScActivity : ComponentActivity() {
     /** Тестовая сборка с новым интерфейсом внутри APK (flavor icetest). */
     private val iceMode get() = BuildConfig.ICE_UI
 
+    /** Только тестовый пакет (.test): отладка WebView, отключённое обновление из прод-канала, подпись «Тестовая сборка». */
+    private val iceTest get() = BuildConfig.ICE_TEST
+
     /** Что открывать при старте и после выхода: новый интерфейс (тест) или кабинет с сервера. */
     private fun startUrl() = if (iceMode) ScIceAssets.HOME else PRIMARY_HOME
 
@@ -325,7 +328,7 @@ class ScActivity : ComponentActivity() {
             isAppearanceLightNavigationBars = false
         }
         web = WebView(this)
-        if (iceMode) WebView.setWebContentsDebuggingEnabled(true)   // тестовая сборка: страницу можно разобрать через chrome://inspect
+        if (iceTest) WebView.setWebContentsDebuggingEnabled(true)   // тестовая сборка: страницу можно разобрать через chrome://inspect
         web.setBackgroundColor(BRAND_BG)
         // Android 15+ (targetSdk 35+) принудительно рисует окно под системными барами, а цвета баров игнорирует.
         // Единое поведение на всех версиях: edge-to-edge + отступы под статус-бар, вырез, панель навигации и клавиатуру.
@@ -999,7 +1002,7 @@ class ScActivity : ComponentActivity() {
     private var updAskedFor = 0
 
     private fun updCheckNative() {
-        if (iceMode) return   // тестовая сборка: другой пакет, обновление из прод-канала не предлагаем
+        if (iceTest) return   // тестовая сборка: другой пакет, обновление из прод-канала не предлагаем
         if (updBusy || System.currentTimeMillis() - updChecked < 30 * 60_000L) return
         updChecked = System.currentTimeMillis()
         Thread {
@@ -1244,7 +1247,7 @@ class ScActivity : ComponentActivity() {
         /** Версия, пакет и коммит сборки — для замечаний тестера. */
         @JavascriptInterface
         fun buildInfo(): String = JSONObject().put("version", BuildConfig.VERSION_NAME).put("code", BuildConfig.VERSION_CODE)
-            .put("sha", BuildConfig.GIT_SHA).put("pkg", BuildConfig.APPLICATION_ID).put("ice", iceMode).toString()
+            .put("sha", BuildConfig.GIT_SHA).put("pkg", BuildConfig.APPLICATION_ID).put("ice", iceTest).toString()
 
         /** Открыть раздел старого кабинета (тарифы, бонусы, ключ, статистика, поддержка) — оттуда «Назад» возвращает в приложение. */
         @JavascriptInterface
@@ -1456,7 +1459,7 @@ class ScActivity : ComponentActivity() {
         }
 
         @JavascriptInterface
-        fun installUpdate() { if (!iceMode) updRun() }
+        fun installUpdate() { if (!iceTest) updRun() }
 
         @JavascriptInterface
         fun advanced() {
