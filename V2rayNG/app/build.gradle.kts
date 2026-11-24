@@ -16,6 +16,8 @@ android {
         targetSdk = 37
         versionCode = 792
         versionName = "1.3.2"
+        buildConfigField("boolean", "ICE_UI", "false")
+        buildConfigField("String", "GIT_SHA", "\"${gitSha()}\"")
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
         splits {
@@ -70,11 +72,23 @@ android {
             dimension = "form"
             applicationIdSuffix = ".tv"
         }
+        // Тестовая сборка нового интерфейса («ледяной» UI встроен в APK, см. src/icetest/assets/ice):
+        // ставится рядом с обычным приложением (…vpn.test), называется «Siberia Connect Тест», не обновляется из прод-канала.
+        create("icetest") {
+            dimension = "form"
+            applicationIdSuffix = ".test"
+            versionNameSuffix = "-ice"
+            buildConfigField("boolean", "ICE_UI", "true")
+        }
     }
 
     sourceSets {
         getByName("main") {
             jniLibs.srcDirs("libs")
+        }
+        // тестовая сборка — это мобильная версия: те же ролики волка, что и в flavor mobile
+        getByName("icetest") {
+            assets.srcDir("src/mobile/assets")
         }
     }
 
@@ -124,7 +138,8 @@ android {
                         "universal"
 
                     val isTv = variant.productFlavors.any { it.name == "tv" }
-                    output.outputFileName = "${if (isTv) "SiberiaConnectTV" else "SiberiaConnect"}_${variant.versionName}_${abi}.apk"
+                    val isIce = variant.productFlavors.any { it.name == "icetest" }
+                    output.outputFileName = "${if (isTv) "SiberiaConnectTV" else if (isIce) "SiberiaConnectTest" else "SiberiaConnect"}_${variant.versionName}_${abi}.apk"
                     if (versionCodes.containsKey(abi)) {
                         output.versionCodeOverride =
                             (1000000 * versionCodes[abi]!!).plus(variant.versionCode)
@@ -243,3 +258,9 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 }
+
+/** Короткий хэш коммита для BuildConfig.GIT_SHA (в CI checkout с историей; без git — "unknown"). */
+fun gitSha(): String = runCatching {
+    val p = ProcessBuilder("git", "rev-parse", "--short", "HEAD").redirectErrorStream(true).start()
+    p.inputStream.bufferedReader().readText().trim().ifEmpty { "unknown" }
+}.getOrDefault("unknown")

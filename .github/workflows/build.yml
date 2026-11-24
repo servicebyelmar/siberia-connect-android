@@ -113,7 +113,7 @@ jobs:
         cd ${{ github.workspace }}/V2rayNG
         echo "sdk.dir=${ANDROID_HOME}" > local.properties
         chmod 755 gradlew
-        ./gradlew assemblePlaystoreMobileRelease assemblePlaystoreTvRelease -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
+        ./gradlew assemblePlaystoreMobileRelease assemblePlaystoreTvRelease assemblePlaystoreIcetestRelease -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
     
     - name: Upload arm64-v8a APK
       uses: actions/upload-artifact@v7
@@ -142,6 +142,13 @@ jobs:
       with:
         name: universal-apk
         path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/SiberiaConnect_*universal*.apk
+
+    - name: Upload test (ice UI) universal APK
+      uses: actions/upload-artifact@v7
+      if: ${{ success() }}
+      with:
+        name: test-ice-universal-apk
+        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/SiberiaConnectTest_*universal*.apk
 
     - name: Upload TV universal APK
       uses: actions/upload-artifact@v7

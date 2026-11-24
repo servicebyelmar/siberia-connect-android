@@ -151,6 +151,25 @@ class ScActivity : ComponentActivity() {
 
     private lateinit var web: WebView
     private val wolfAssets by lazy { ScWolfAssets(this) }
+    private val iceAssets by lazy { ScIceAssets(this) }
+
+    /** Тестовая сборка с новым интерфейсом внутри APK (flavor icetest). */
+    private val iceMode get() = BuildConfig.ICE_UI
+
+    /** Что открывать при старте и после выхода: новый интерфейс (тест) или кабинет с сервера. */
+    private fun startUrl() = if (iceMode) ScIceAssets.HOME else PRIMARY_HOME
+
+    /** Раздел старого кабинета, который нужно открыть сразу после загрузки (из «Настроек» нового интерфейса). */
+    @Volatile private var pendingSection: String? = null
+
+    /** Подключение в процессе (проверка ключа, выбор сервера, запуск ядра) — для vpnState() и отмены. */
+    @Volatile private var connecting = false
+
+    /** Пользователь нажал «Отключить» во время подготовки: после неё ядро запускать не нужно. */
+    @Volatile private var cancelFlow = false
+
+    /** Последний рейтинг узлов с сервера (доступность/нагрузка) — для списка серверов. */
+    @Volatile private var lastRank: ScAccount.Rank? = null
     private val prefs by lazy { getSharedPreferences("sc_app", MODE_PRIVATE) }
     private val homeHandler = Handler(Looper.getMainLooper())
     private var homeLoaded = false
@@ -163,6 +182,13 @@ class ScActivity : ComponentActivity() {
         if (url.startsWith("https://$PRIMARY_HOST/")) url.replaceFirst("https://$PRIMARY_HOST/", "https://$FALLBACK_HOST/") else FALLBACK_HOME
 
     private fun loadHome(url: String, fallback: Boolean = false) {
+        if (ScIceAssets.isIceUrl(url)) {
+            // встроенный интерфейс лежит в APK — сети и резервного адреса не требует
+            homeHandler.removeCallbacksAndMessages(null)
+            currentHome = url; homeLoaded = true; fallbackTried = true
+            web.loadUrl(url)
+            return
+        }
         currentHome = url
         homeLoaded = false
         fallbackTried = fallback
@@ -289,6 +315,7 @@ class ScActivity : ComponentActivity() {
             isAppearanceLightNavigationBars = false
         }
         web = WebView(this)
+        if (iceMode) WebView.setWebContentsDebuggingEnabled(true)   // тестовая сборка: страницу можно разобрать через chrome://inspect
         web.setBackgroundColor(BRAND_BG)
         // Android 15+ (targetSdk 35+) принудительно рисует окно под системными барами, а цвета баров игнорирует.
         // Единое поведение на всех версиях: edge-to-edge + отступы под статус-бар, вырез, панель навигации и клавиатуру.
@@ -322,7 +349,8 @@ class ScActivity : ComponentActivity() {
             }
 
              override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
-                 wolfAssets.intercept(request) ?: super.shouldInterceptRequest(view, request)
+                 (if (iceMode) iceAssets.intercept(request) else null)
+                     ?: wolfAssets.intercept(request) ?: super.shouldInterceptRequest(view, request)
 
              override fun onPageFinished(view: WebView, url: String?) {
                 super.onPageFinished(view, url)
@@ -330,6 +358,7 @@ class ScActivity : ComponentActivity() {
                 if (uri?.authority in allowedAuthorities && uri?.path?.startsWith("/app/") == true) {
                     homeLoaded = true
                     homeHandler.removeCallbacksAndMessages(null)
+                    if (iceMode) onCabinetOpened(view)
                 }
                 if (uri?.authority in allowedAuthorities) {
                     val did = JSONObject.quote(devId())
@@ -352,21 +381,23 @@ class ScActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 web.evaluateJavascript("(window.scBack && window.scBack()) ? '1' : '0'") { r ->
-                    if (r?.contains("1") != true) moveTaskToBack(true)
+                    if (r?.contains("1") == true) return@evaluateJavascript
+                    // из старого кабинета (тарифы, бонусы, поддержка) «Назад» ведёт в новый интерфейс, а не сворачивает приложение
+                    if (iceMode && !ScIceAssets.isIceUrl(web.url)) loadHome(ScIceAssets.HOME) else moveTaskToBack(true)
                 }
             }
         })
-        if (savedInstanceState != null) web.restoreState(savedInstanceState)
+        if (savedInstanceState != null && !iceMode) web.restoreState(savedInstanceState)
         else if (account.needsAutoRegister(hasSubNow()) && dlCode(intent) == null) {
             // 1.1.0: первый запуск без ключа — аккаунт и пробный день создаются сами, кабинет откроется уже с входом
-            val start = dlUrl(intent) ?: PRIMARY_HOME
+            val start = dlUrl(intent) ?: startUrl()
             lifecycleScope.launch(Dispatchers.IO) {
                 runCatching {
                     if (account.autoRegister()) applyActiveLink(account.last)
                 }
                 runOnUiThread { loadHome(start) }
             }
-        } else loadHome(dlUrl(intent) ?: PRIMARY_HOME)
+        } else loadHome(dlUrl(intent) ?: startUrl())
         // ключ мог пропасть из списка при сбое хранилища — возвращаем сохранённый (сеть тут ни при чём)
         lifecycleScope.launch(Dispatchers.IO) { runCatching { restoreKeyIfMissing() } }
         // идёт 72-часовая блокировка — сразу показываем таймер
@@ -424,11 +455,39 @@ class ScActivity : ComponentActivity() {
     }
 
     private fun emit(ev: JSONObject) {
+        if (ev.optString("type") == "state") connecting = ev.optString("state") == "connecting"
         runOnUiThread {
             if (::web.isInitialized) {
                 web.evaluateJavascript("window.scNative && window.scNative($ev)", null)
             }
         }
+    }
+
+    /**
+     * Старый кабинет открыт из нового интерфейса: переходим к нужному разделу (после загрузки данных кабинета)
+     * и добавляем кнопку «‹ В приложение» — возврат без системной кнопки «Назад».
+     */
+    private fun onCabinetOpened(view: WebView) {
+        val section = pendingSection
+        pendingSection = null
+        val open = when (section) {
+            "plans" -> "go('plans')"
+            "key" -> "go('key','profile')"
+            "stats" -> "go('stats','profile')"
+            "bonus" -> "go('bonus','profile')"
+            "profile" -> "go('profile')"
+            "support" -> "openPage('support','profile')"
+            else -> ""
+        }
+        val js = """(function(){
+          try{ if(!document.getElementById('sc-ice-back')){
+            var b=document.createElement('button'); b.id='sc-ice-back'; b.textContent='‹ В приложение';
+            b.style.cssText='position:fixed;left:10px;top:8px;z-index:99999;padding:9px 14px;border-radius:20px;border:1px solid rgba(143,219,255,.4);background:rgba(11,13,16,.88);color:#BFEAFF;font:600 14px/1.2 sans-serif';
+            b.onclick=function(){ try{SCNative.goIce()}catch(e){} };
+            document.body.appendChild(b); } }catch(e){}
+          var n=0; (function t(){ n++; if(window.D_OK){ try{ $open }catch(e){} } else if(n<48) setTimeout(t,250); })();
+        })()"""
+        view.evaluateJavascript(js, null)
     }
 
     private fun openExternal(url: String) {
@@ -593,7 +652,7 @@ class ScActivity : ComponentActivity() {
                 runCatching { android.webkit.WebStorage.getInstance().deleteAllData() }
                 if (::web.isInitialized) {
                     runCatching { web.clearHistory(); web.clearCache(true) }
-                    loadHome(PRIMARY_HOME)
+                    loadHome(startUrl())
                 }
                 emit(JSONObject().put("type", "state").put("state", "off"))
                 emit(JSONObject().put("type", "toast").put("text", "Вы вышли из аккаунта ($reason). Войдите снова"))
@@ -605,6 +664,7 @@ class ScActivity : ComponentActivity() {
     private fun connectFlow() {
         if (preparing) return
         preparing = true
+        cancelFlow = false
         emit(JSONObject().put("type", "state").put("state", "connecting"))
         lifecycleScope.launch(Dispatchers.IO) {
             var go = true
@@ -646,7 +706,11 @@ class ScActivity : ComponentActivity() {
             } finally {
                 preparing = false
             }
-            if (go) runOnUiThread { requestStart() }
+            if (go && cancelFlow) {
+                // отмена во время подготовки: ядро не запускаем, интерфейс возвращаем в «Отключено»
+                cancelFlow = false
+                emit(JSONObject().put("type", "state").put("state", "off"))
+            } else if (go) runOnUiThread { requestStart() }
         }
     }
 
@@ -690,7 +754,7 @@ class ScActivity : ComponentActivity() {
         if (list.size < 2) return
         // 1) рейтинг сервера (нагрузка/доступность); нет ответа — просто пинг-проба ниже
         val rank = runCatching { account.nodesRank() }.getOrNull()
-        rank?.let { connectTimeoutMs = it.connectTimeoutMs }
+        rank?.let { connectTimeoutMs = it.connectTimeoutMs; lastRank = it }
         // 2) пинг-проба через ядро; перегруженные и недоступные ноды отсеиваем, если остались другие
         val res = measureAll(list)
         var ok = list.indices.filter { (res[it] ?: -1L) > 0L }
@@ -870,6 +934,7 @@ class ScActivity : ComponentActivity() {
     private var updAskedFor = 0
 
     private fun updCheckNative() {
+        if (iceMode) return   // тестовая сборка: другой пакет, обновление из прод-канала не предлагаем
         if (updBusy || System.currentTimeMillis() - updChecked < 30 * 60_000L) return
         updChecked = System.currentTimeMillis()
         Thread {
@@ -1095,7 +1160,38 @@ class ScActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun disconnect() {
+            if (preparing) cancelFlow = true
             runOnUiThread { LauncherManager.stopService(this@ScActivity) }
+        }
+
+        /** Новый интерфейс: фактическое состояние VPN — "on" | "connecting" | "off" (для возврата из фона). */
+        @JavascriptInterface
+        fun vpnState(): String = when {
+            running -> "on"
+            preparing || connecting -> "connecting"
+            else -> "off"
+        }
+
+        /** Тестовая сборка нового интерфейса? */
+        @JavascriptInterface
+        fun isIce(): Boolean = iceMode
+
+        /** Версия, пакет и коммит сборки — для замечаний тестера. */
+        @JavascriptInterface
+        fun buildInfo(): String = JSONObject().put("version", BuildConfig.VERSION_NAME).put("code", BuildConfig.VERSION_CODE)
+            .put("sha", BuildConfig.GIT_SHA).put("pkg", BuildConfig.APPLICATION_ID).put("ice", iceMode).toString()
+
+        /** Открыть раздел старого кабинета (тарифы, бонусы, ключ, статистика, поддержка) — оттуда «Назад» возвращает в приложение. */
+        @JavascriptInterface
+        fun openCabinet(section: String) {
+            pendingSection = section
+            runOnUiThread { if (::web.isInitialized) loadHome(PRIMARY_HOME) }
+        }
+
+        /** Из старого кабинета обратно в новый интерфейс. */
+        @JavascriptInterface
+        fun goIce() {
+            runOnUiThread { if (::web.isInitialized) loadHome(ScIceAssets.HOME) }
         }
 
         @JavascriptInterface
@@ -1113,8 +1209,10 @@ class ScActivity : ComponentActivity() {
             }
             list.forEach { g ->
                 val p = MmkvManager.decodeServerConfig(g) ?: return@forEach
+                val node = nodeOf(lastRank, g)
                 arr.put(JSONObject().put("guid", g).put("name", p.remarks).put("selected", !auto && g == sel)
-                    .put("active", running && g == sel).put("ping", pings[g] ?: 0L))
+                    .put("active", running && g == sel).put("ping", pings[g] ?: 0L)
+                    .put("available", node?.available ?: true).put("load", node?.load ?: -1.0))
             }
             return arr.toString()
         }
@@ -1148,6 +1246,7 @@ class ScActivity : ComponentActivity() {
             pinging = true
             lifecycleScope.launch(Dispatchers.IO) {
                 runCatching {
+                    runCatching { account.nodesRank() }.getOrNull()?.let { lastRank = it }
                     val list = ourSub()?.let { MmkvManager.decodeServerList(it.guid) }.orEmpty()
                     if (list.isNotEmpty()) measureAll(list) else emptyMap()
                 }
@@ -1274,7 +1373,7 @@ class ScActivity : ComponentActivity() {
         }
 
         @JavascriptInterface
-        fun installUpdate() = updRun()
+        fun installUpdate() { if (!iceMode) updRun() }
 
         @JavascriptInterface
         fun advanced() {

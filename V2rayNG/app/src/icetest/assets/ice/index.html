@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Siberia Connect</title>
+<style>
+:root{
+  --bg:#0B0D10; --bg2:#10151A; --panel:#151A20; --panel2:#1B222A; --line:rgba(255,255,255,.07);
+  --ice:#8FDBFF; --ice2:#4FC3F7; --iceDim:rgba(143,219,255,.18);
+  --tx:#E9EFF4; --mut:#8B98A5; --ok:#5FE3C0; --warn:#F0C36A; --bad:#FF8F8F;
+  --r:16px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{font-size:16px;-webkit-text-size-adjust:100%}
+html,body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Roboto","Segoe UI",sans-serif;
+  line-height:1.35;overscroll-behavior:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
+.app{max-width:560px;margin:0 auto;min-height:100vh;padding:.75rem 1rem calc(5.5rem + env(safe-area-inset-bottom,0px));position:relative}
+.app::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;
+  background:radial-gradient(70% 38% at 50% 0%,rgba(79,195,247,.13),transparent 70%),radial-gradient(60% 30% at 50% 100%,rgba(79,195,247,.06),transparent 70%)}
+.screen{display:none}.screen.on{display:block;animation:fade .22s ease}
+@keyframes fade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+h1{font-size:1.35rem;margin:.25rem 0 .75rem;font-weight:700;letter-spacing:.2px}
+h2{font-size:.78rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);margin:1.4rem .25rem .5rem}
+.sub{color:var(--mut);font-size:.88rem}
+
+/* ───── главная ───── */
+.brand{display:flex;align-items:center;gap:.5rem;color:var(--mut);font-size:.85rem;font-weight:600;letter-spacing:.04em;justify-content:center;margin-bottom:.25rem}
+.brand i{display:inline-block;width:.45rem;height:.45rem;border-radius:50%;background:var(--ice2);box-shadow:0 0 8px var(--ice2)}
+.hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:.5rem}
+.ringwrap{position:relative;width:min(72vw,17.5rem);aspect-ratio:1;display:grid;place-items:center}
+.ring{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.ring .base{fill:none;stroke:var(--iceDim);stroke-width:1.5;transition:stroke .5s}
+.ring .arc{fill:none;stroke:url(#ig);stroke-width:2.2;stroke-linecap:round;stroke-dasharray:0 653;opacity:0;transition:stroke-dasharray .7s ease,opacity .5s;transform-origin:110px 110px;filter:drop-shadow(0 0 6px rgba(143,219,255,.55))}
+.ringwrap[data-s=connecting] .arc{opacity:1;stroke-dasharray:190 463;animation:spin 2.6s linear infinite}
+.ringwrap[data-s=on] .arc{opacity:1;stroke-dasharray:653 0;animation:breathe 5s ease-in-out infinite}
+.ringwrap[data-s=error] .base{stroke:rgba(240,195,106,.55)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes breathe{0%,100%{opacity:.75;filter:drop-shadow(0 0 4px rgba(143,219,255,.35))}50%{opacity:1;filter:drop-shadow(0 0 9px rgba(143,219,255,.7))}}
+.orb{position:relative;width:76%;aspect-ratio:1;border-radius:50%;overflow:hidden;background:#06121f;border:1px solid rgba(143,219,255,.25);
+  box-shadow:0 0 0 .35rem var(--bg),0 10px 40px rgba(0,0,0,.55);transition:box-shadow .5s,transform .15s}
+.orb:active{transform:scale(.97)}
+.orb img{width:100%;height:100%;object-fit:cover;transform:scale(1.2);display:block;transition:filter .6s;filter:saturate(.3) brightness(.55)}
+.ringwrap[data-s=connecting] .orb img{filter:saturate(.7) brightness(.8)}
+.ringwrap[data-s=on] .orb img{filter:saturate(1.05) brightness(1.05)}
+.ringwrap[data-s=on] .orb{box-shadow:0 0 0 .35rem var(--bg),0 0 38px rgba(79,195,247,.38)}
+.ringwrap[data-s=error] .orb img{filter:saturate(.35) brightness(.6) sepia(.4)}
+.orb .pw{position:absolute;left:50%;bottom:11%;transform:translateX(-50%);width:2.4rem;height:2.4rem;border-radius:50%;display:grid;place-items:center;
+  background:rgba(8,14,20,.78);border:1px solid rgba(143,219,255,.35);backdrop-filter:blur(2px)}
+.orb .pw svg{width:1.2rem;height:1.2rem}
+.st{font-size:1.6rem;font-weight:800;margin-top:1.15rem;letter-spacing:.2px}
+.st.on{color:var(--ice)}.st.error{color:var(--warn)}
+.tm{font-variant-numeric:tabular-nums;font-size:1.15rem;color:var(--tx);margin-top:.2rem;min-height:1.6rem;letter-spacing:.06em}
+.hint{color:var(--mut);font-size:.9rem;margin-top:.15rem;max-width:22rem;min-height:1.25rem}
+.err{margin-top:.75rem;padding:.75rem .9rem;border-radius:var(--r);background:rgba(240,195,106,.09);border:1px solid rgba(240,195,106,.28);
+  color:#F6DDA6;font-size:.92rem;text-align:left;width:100%}
+.err .code{display:block;margin-top:.35rem;color:var(--mut);font-size:.8rem}
+.err .acts{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.65rem}
+.btn{display:inline-flex;align-items:center;justify-content:center;text-align:center;gap:.4rem;min-height:2.75rem;padding:.55rem 1.1rem;border-radius:999px;
+  font-weight:700;font-size:.95rem;background:linear-gradient(180deg,#9AE0FF,#58C8F8);color:#05202F;line-height:1.2}
+.btn.ghost{background:var(--panel2);color:var(--tx);border:1px solid var(--line);font-weight:600}
+.btn.small{min-height:2.4rem;padding:.4rem .95rem;font-size:.88rem}
+.btn[disabled]{opacity:.5}
+.notice{margin-top:1rem;padding:.85rem 1rem;border-radius:var(--r);background:var(--panel);border:1px solid var(--line);font-size:.92rem}
+.notice b{display:block;margin-bottom:.2rem}
+.notice .acts{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.65rem}
+
+.srv{display:flex;align-items:center;gap:.8rem;width:100%;margin-top:1.4rem;padding:.9rem 1rem;border-radius:var(--r);background:var(--panel);border:1px solid var(--line);min-height:3.6rem}
+.srv:active{background:var(--panel2)}
+.flag{font-size:1.65rem;line-height:1;width:2.2rem;text-align:center;flex:none}
+.flag svg{width:1.55rem;height:1.55rem;color:var(--ice2);vertical-align:middle}
+.flag.cc{font-size:.8rem;font-weight:800;color:var(--ice);border:1px solid var(--iceDim);border-radius:.5rem;padding:.35rem 0}
+.srv .t{flex:1;min-width:0}
+.srv .t b{display:block;font-size:1rem;overflow-wrap:break-word}
+.srv .t span{display:block;color:var(--mut);font-size:.82rem;overflow-wrap:break-word}
+.chev{width:1.2rem;height:1.2rem;color:var(--mut);flex:none}
+.ping{font-size:.8rem;font-weight:700;padding:.2rem .55rem;border-radius:999px;background:rgba(95,227,192,.12);color:var(--ok);white-space:nowrap;flex:none}
+.ping.mid{background:rgba(240,195,106,.12);color:var(--warn)}.ping.bad{background:rgba(255,143,143,.12);color:var(--bad)}.ping.none{background:var(--panel2);color:var(--mut)}
+
+/* ───── серверы ───── */
+.head{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.iconbtn{display:inline-flex;align-items:center;gap:.4rem;min-height:2.5rem;padding:.4rem .8rem;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:.85rem;font-weight:600;color:var(--ice)}
+.iconbtn svg{width:1.05rem;height:1.05rem}
+.iconbtn.spin svg{animation:spin 1s linear infinite}
+.cur{padding:.9rem 1rem;border-radius:var(--r);background:linear-gradient(180deg,rgba(79,195,247,.12),rgba(79,195,247,.04));border:1px solid rgba(143,219,255,.28);display:flex;gap:.8rem;align-items:center}
+.cur small{display:block;color:var(--ice);font-size:.74rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.cur b{display:block;font-size:1.05rem;overflow-wrap:break-word}
+.cur span{color:var(--mut);font-size:.84rem}
+.list{display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem}
+.item{display:flex;align-items:center;gap:.8rem;width:100%;padding:.8rem 1rem;border-radius:var(--r);background:var(--panel);border:1px solid var(--line);min-height:3.6rem}
+.item:active{background:var(--panel2)}
+.item.sel{border-color:rgba(143,219,255,.5);background:linear-gradient(180deg,rgba(79,195,247,.1),var(--panel))}
+.item.off{opacity:.55}
+.item .t{flex:1;min-width:0}
+.item .t b{display:block;font-size:1rem;overflow-wrap:break-word}
+.item .t span{display:block;color:var(--mut);font-size:.82rem;overflow-wrap:break-word}
+.badge{font-size:.72rem;font-weight:800;letter-spacing:.04em;padding:.18rem .5rem;border-radius:999px;background:var(--ice2);color:#04202e;white-space:nowrap;flex:none}
+.badge.soft{background:var(--iceDim);color:var(--ice)}
+.badge.warn{background:rgba(240,195,106,.15);color:var(--warn)}
+.radio{width:1.35rem;height:1.35rem;border-radius:50%;border:2px solid #3b4651;flex:none;display:grid;place-items:center}
+.sel .radio{border-color:var(--ice2)}.sel .radio::after{content:"";width:.65rem;height:.65rem;border-radius:50%;background:var(--ice2)}
+.grp{border-radius:var(--r);background:var(--panel);border:1px solid var(--line);overflow:hidden}
+.grp>.item{border:0;border-radius:0;background:transparent}
+.grp.has{border-color:rgba(143,219,255,.4)}
+.grp .nodes{display:none;border-top:1px solid var(--line);background:var(--bg2)}
+.grp.open .nodes{display:block}
+.grp.open .chev{transform:rotate(90deg)}
+.chev{transition:transform .2s}
+.nodes .item{padding-left:1.1rem;min-height:3.2rem;border-radius:0;border:0;border-top:1px solid var(--line);background:transparent}
+.nodes .item:first-child{border-top:0}
+.one{margin-top:.75rem;padding:1.25rem 1rem;border-radius:var(--r);background:var(--panel);border:1px solid rgba(143,219,255,.35);text-align:center}
+.one .flag{font-size:2.6rem;width:auto}
+.one b{display:block;font-size:1.2rem;margin-top:.4rem;overflow-wrap:break-word}
+.one p{color:var(--mut);font-size:.9rem;margin:.6rem auto 0;max-width:24rem}
+.one .acts{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-top:.9rem}
+
+/* ───── настройки ───── */
+.rows{border-radius:var(--r);background:var(--panel);border:1px solid var(--line);overflow:hidden}
+.row{display:flex;align-items:center;gap:.8rem;width:100%;padding:.85rem 1rem;min-height:3.4rem;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row:active{background:var(--panel2)}
+.row .t{flex:1;min-width:0}
+.row .t b{display:block;font-weight:600;font-size:.98rem;overflow-wrap:break-word}
+.row .t span{display:block;color:var(--mut);font-size:.82rem;margin-top:.1rem;overflow-wrap:break-word}
+.row.danger .t b{color:var(--bad)}
+.ico{width:1.3rem;height:1.3rem;color:var(--ice);flex:none}
+.sw{width:2.9rem;height:1.7rem;border-radius:999px;background:#2A333C;position:relative;flex:none;transition:background .2s}
+.sw::after{content:"";position:absolute;top:.2rem;left:.2rem;width:1.3rem;height:1.3rem;border-radius:50%;background:#9aa6b1;transition:transform .2s,background .2s}
+.sw[aria-checked=true]{background:rgba(79,195,247,.35)}
+.sw[aria-checked=true]::after{transform:translateX(1.2rem);background:var(--ice)}
+.ver{margin:1.5rem .25rem 0;color:var(--mut);font-size:.78rem;text-align:center;overflow-wrap:break-word}
+
+/* ───── навигация ───── */
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(11,13,16,.96);border-top:1px solid var(--line);backdrop-filter:blur(8px)}
+.nav>div{max-width:560px;margin:0 auto;display:flex;padding:.3rem .5rem calc(.3rem + env(safe-area-inset-bottom,0px))}
+.nav button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:.2rem;padding:.45rem .15rem;border-radius:12px;color:var(--mut);text-align:center}
+.nav button svg{width:1.45rem;height:1.45rem}
+.nav button span{font-size:.76rem;font-weight:600;line-height:1.15;overflow-wrap:break-word;word-break:normal;hyphens:manual;max-width:100%}
+.nav button.on{color:var(--ice)}
+.nav button.on svg{filter:drop-shadow(0 0 6px rgba(143,219,255,.6))}
+
+/* ───── шторка, тост ───── */
+.shade{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:none}
+.shade.on{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;max-width:560px;margin:0 auto;max-height:88vh;overflow:auto;background:var(--panel);border-radius:22px 22px 0 0;border:1px solid var(--line);
+  padding:1rem 1rem calc(1rem + env(safe-area-inset-bottom,0px));display:none}
+.sheet.on{display:block;animation:up .22s ease}
+@keyframes up{from{transform:translateY(30px);opacity:.3}to{transform:none;opacity:1}}
+.sheet h3{margin:.1rem 0 .5rem;font-size:1.15rem}
+.sheet p{color:var(--mut);font-size:.92rem;margin:.3rem 0 .8rem}
+.sheet .acts{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.9rem}
+.sheet .acts .btn{flex:1 1 9rem}
+.inp{width:100%;min-height:2.9rem;padding:.6rem .85rem;border-radius:12px;border:1px solid var(--line);background:var(--bg2);color:var(--tx);font:inherit;font-size:1.05rem}
+.apps .item{min-height:3.2rem;padding:.55rem .75rem;border-radius:12px}
+.apps img{width:2.2rem;height:2.2rem;border-radius:.5rem;flex:none;background:var(--panel2)}
+.chk{width:1.35rem;height:1.35rem;border-radius:.35rem;border:2px solid #3b4651;flex:none;display:grid;place-items:center}
+.sel .chk{background:var(--ice2);border-color:var(--ice2)}.sel .chk::after{content:"✓";color:#04202e;font-weight:900;font-size:.9rem;line-height:1}
+.toast{position:fixed;left:50%;bottom:calc(5.6rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(10px);z-index:60;max-width:calc(100% - 2rem);
+  padding:.65rem 1rem;border-radius:14px;background:#222B34;border:1px solid var(--line);color:var(--tx);font-size:.9rem;opacity:0;pointer-events:none;transition:.25s;text-align:center}
+.toast.on{opacity:1;transform:translateX(-50%)}
+
+/* крупный шрифт: блоки переносятся целиком, слова не рвутся посередине */
+.item,.srv,.cur{flex-wrap:wrap;row-gap:.35rem}
+.item .t,.srv .t{flex:1 1 7rem;min-width:0}
+.item .badge,.item .ping,.srv .ping{margin-left:auto}
+.item .radio{margin-left:auto}
+.chev{width:18px;height:18px}
+.radio{width:22px;height:22px}
+.sel .radio::after{width:10px;height:10px}
+.sw{width:46px;height:27px}
+.sw::after{top:3px;left:3px;width:21px;height:21px}
+.sw[aria-checked=true]::after{transform:translateX(19px)}
+.row{gap:.6rem;padding:.8rem .85rem}
+.row .t{flex:1 1 0;min-width:0}
+.nav button span{font-size:min(.76rem,4.2vw)}
+.nav button{padding:.45rem .1rem}
+.row .t b,.item .t b,.srv .t b{font-size:min(1rem,5.3vw)}
+.row .t span,.item .t span,.srv .t span{font-size:min(.84rem,4.5vw)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-5.5h-5V21H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5S14.600 18.100 12 20.500C9.400 18.100 8.100 15.300 8.100 12S9.400 5.900 12 3.500z"/></g></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.800 12H21M5.600 5.600l1.600 1.600M16.800 16.800l1.600 1.600M5.600 18.400l1.600-1.600M16.800 7.200l1.600-1.600"/></g></symbol>
+    <symbol id="i-power" viewBox="0 0 24 24"><g fill="none" stroke="#BFEAFF" stroke-width="2" stroke-linecap="round"><path d="M12 3.500v8"/><path d="M7.400 6.700a7.500 7.500 0 1 0 9.200 0"/></g></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2.5 5 13.500h5.500L9.500 21.500 19 9.500h-5.800z" fill="currentColor"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.500-5.800"/><path d="M20 4v4.500h-4.500"/></g></symbol>
+  </defs>
+</svg>
+
+<div class="app" id="app">
+
+  <section class="screen on" id="s-home" aria-label="Главная">
+    <div class="brand"><i></i>Siberia Connect</div>
+    <div class="hero">
+      <div class="ringwrap" id="ringwrap" data-s="off">
+        <svg class="ring" viewBox="0 0 220 220" aria-hidden="true">
+          <defs><linearGradient id="ig" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D5F4FF"/><stop offset="1" stop-color="#3FB8F5"/></linearGradient></defs>
+          <circle class="base" cx="110" cy="110" r="104"/>
+          <circle class="arc" id="arc" cx="110" cy="110" r="104"/>
+        </svg>
+        <button class="orb" id="orb" type="button" aria-label="Подключить">
+          <img id="wolf" alt="" src="" draggable="false">
+          <span class="pw"><svg><use href="#i-power"/></svg></span>
+        </button>
+      </div>
+      <div class="st" id="stTitle" role="status" aria-live="polite">Отключено</div>
+      <div class="tm" id="timer"></div>
+      <div class="hint" id="stHint"></div>
+      <div class="err" id="errBox" hidden></div>
+    </div>
+    <div id="notice"></div>
+    <button class="srv" id="srvRow" type="button"></button>
+  </section>
+
+  <section class="screen" id="s-servers" aria-label="Серверы"></section>
+  <section class="screen" id="s-settings" aria-label="Настройки"></section>
+</div>
+
+<nav class="nav" aria-label="Разделы"><div>
+  <button type="button" data-t="home" class="on"><svg><use href="#i-home"/></svg><span>Главная</span></button>
+  <button type="button" data-t="servers"><svg><use href="#i-globe"/></svg><span>Серверы</span></button>
+  <button type="button" data-t="settings"><svg><use href="#i-gear"/></svg><span>Настройки</span></button>
+</div></nav>
+
+<div class="shade" id="shade"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+'use strict';
+var N = window.SCNative || null;
+function nat(m){ try{ if(N && typeof N[m]==='function') return N[m].apply(N, Array.prototype.slice.call(arguments,1)); }catch(e){} return undefined; }
+function natJSON(m, def){ try{ var r = nat(m); return r ? JSON.parse(r) : def; }catch(e){ return def; } }
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function plural(n,a,b,c){ var m=n%10,h=n%100; return (m===1&&h!==11)?a:(m>=2&&m<=4&&(h<10||h>=20))?b:c; }
+
+/* ───────── состояние ───────── */
+var S = { state:'off', err:'', since:0, off:0, servers:[], tab:'home', open:{}, lockUntil:0, switching:0, connAt:0,
+          acct:'', incident:'', me:null, pingBusy:false, pingAt:0, build:null };
+var BASE = (nat('assetBase') || 'https://sc-assets.local/');
+
+/* ───────── узлы: флаг → страна, название ───────── */
+var CC = {NL:'Нидерланды',FI:'Финляндия',RU:'Россия',KZ:'Казахстан',DE:'Германия',SE:'Швеция',LV:'Латвия',AT:'Австрия',US:'США',LT:'Литва',
+  JP:'Япония',FR:'Франция',GB:'Великобритания',TR:'Турция',PL:'Польша',EE:'Эстония',CH:'Швейцария',CA:'Канада',KR:'Корея',SG:'Сингапур',
+  AE:'ОАЭ',AM:'Армения',GE:'Грузия',UA:'Украина',BY:'Беларусь',CZ:'Чехия',ES:'Испания',IT:'Италия',NO:'Норвегия',RO:'Румыния',BG:'Болгария'};
+function flagCC(str){
+  var m=/^\s*([\u{1F1E6}-\u{1F1FF}]{2})/u.exec(String(str||'')); if(!m) return '';
+  return Array.from(m[1]).map(function(ch){ return String.fromCharCode(ch.codePointAt(0)-0x1F1E6+65); }).join('');
+}
+function flagEmoji(cc){ return cc.split('').map(function(c){return String.fromCodePoint(0x1F1E6+c.charCodeAt(0)-65);}).join(''); }
+function cleanPart(s){ return s.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}\).]+$/gu,'').trim(); }
+function parseNode(x){
+  var name=String(x.name||'').trim(), cc=flagCC(name);
+  var rest=name.replace(/^\s*[\u{1F1E6}-\u{1F1FF}]{2}/u,'');
+  var parts=rest.split(/\s*[·•|]\s*/).map(cleanPart).filter(Boolean);
+  var country = CC[cc] || '';
+  if(!country){ var first=parts[0]||''; var hit=Object.keys(CC).filter(function(k){return CC[k].toLowerCase()===first.toLowerCase();})[0]; if(hit){ cc=hit; country=CC[hit]; } }
+  var low=country.toLowerCase();
+  var rest2=parts.filter(function(p){return p.toLowerCase()!==low;});
+  var title=rest2[0]||'', note=rest2.slice(1).join(' · ');
+  return { guid:x.guid, name:name, cc:cc, flag:cc?flagEmoji(cc):'', country:country||'Другие узлы', title:title, note:note,
+           ping:x.ping||0, selected:!!x.selected, active:!!x.active, available:x.available!==false };
+}
+function fmtPing(p){
+  if(p>0) return '<span class="ping '+(p<120?'':p<260?'mid':'bad')+'">'+Math.round(p)+' мс</span>';
+  if(p<0) return '<span class="ping none">нет ответа</span>';
+  return '';
+}
+function flagHtml(n){ return n.flag?'<span class="flag" aria-hidden="true">'+n.flag+'</span>':'<span class="flag cc" aria-hidden="true">VPN</span>'; }
+
+function loadServers(){
+  var raw = natJSON('servers', []); S.servers = raw;
+  var auto = raw.filter(function(x){return x.auto;})[0] || null;
+  var nodes = raw.filter(function(x){return !x.auto;}).map(parseNode);
+  S.auto = auto; S.nodes = nodes; S.autoOn = !!(auto && auto.selected);
+  S.sel = nodes.filter(function(n){return n.selected;})[0] || null;
+  S.act = nodes.filter(function(n){return n.active;})[0] || null;
+}
+
+/* ───────── состояние VPN ───────── */
+function readStats(){
+  var st = natJSON('stats', null);
+  if(st && st.since>0){ S.since=st.since; S.off=(st.now||Date.now())-Date.now(); }
+  else if(!S.since){ S.since=Date.now()-S.off; }
+}
+function setState(st, err){
+  if(st==='off' && S.switching && Date.now()<S.switching) return;        // смена узла: ядро перезапускается
+  if(st==='on') S.switching=0;
+  if(st==='error') S.switching=0;
+  var was=S.state; S.state=st; S.err=(st==='error'?(err||'Не удалось подключиться. Попробуйте сменить локацию'):'');
+  if(st==='connecting' && was!=='connecting') S.connAt=Date.now();
+  if(st==='on'){ readStats(); } else if(st==='off'||st==='error'){ S.since=0; }
+  loadServers(); renderAll();
+}
+function syncState(){
+  var v = nat('vpnState');
+  if(v===undefined){ var r=nat('isRunning'); v = r===undefined ? undefined : (r?'on':'off'); }
+  if(!v) return;
+  if(S.state==='error' && v==='off') return;
+  if(S.switching && v==='off') return;
+  if(v!==S.state) setState(v);
+  else if(v==='on'){ readStats(); renderHome(); }
+}
+
+/* ───────── главная ───────── */
+function renderHome(){
+  var s=S.state, rw=$('ringwrap'); rw.setAttribute('data-s', s);
+  var t=$('stTitle'); t.className='st '+(s==='on'?'on':s==='error'?'error':'');
+  t.textContent = s==='on'?'Подключено':s==='connecting'?(S.switching?'Переключаю узел…':'Подключение…'):s==='error'?'Ошибка подключения':'Отключено';
+  var orb=$('orb');
+  orb.setAttribute('aria-label', s==='on'?'Отключить VPN':s==='connecting'?'Отменить подключение':'Подключить VPN');
+  var cur = S.act || S.sel;
+  var hint='';
+  if(s==='off') hint='Нажмите на волка, чтобы подключиться';
+  else if(s==='connecting') hint = (S.switching?'Подождите пару секунд':'Проверяем ключ и выбираем узел')+' · нажмите ещё раз, чтобы отменить';
+  else if(s==='on') hint = cur ? 'Трафик идёт через '+cur.country+(cur.title?' · '+cur.title:'') : 'Защищённое соединение установлено';
+  else hint='';
+  $('stHint').textContent=hint;
+  tickTimer();
+  var eb=$('errBox');
+  if(s==='error'){
+    eb.hidden=false;
+    eb.innerHTML = esc(S.err)+(S.incident?'<span class="code">Код обращения: '+esc(S.incident)+'</span>':'')
+      +'<div class="acts"><button class="btn small" type="button" data-a="retry">Повторить</button><button class="btn small ghost" type="button" data-a="servers">Сменить сервер</button></div>';
+  } else eb.hidden=true;
+
+  // карточка сервера
+  var sr=$('srvRow');
+  if(!S.nodes.length){
+    sr.innerHTML='<span class="flag cc">VPN</span><div class="t"><b>Серверов пока нет</b><span>Нажмите, чтобы открыть список</span></div><svg class="chev"><use href="#i-chev"/></svg>';
+  } else if(S.autoOn){
+    var an = S.act;
+    sr.innerHTML='<span class="flag" aria-hidden="true"><svg><use href="#i-bolt"/></svg></span><div class="t"><b>Автовыбор</b><span>'+(an?esc(an.country+(an.title?' · '+an.title:'')):'Самый быстрый узел из '+S.nodes.length)+'</span></div>'
+      +(an?fmtPing(an.ping):'')+'<svg class="chev"><use href="#i-chev"/></svg>';
+  } else {
+    var n = cur || S.nodes[0];
+    sr.innerHTML=flagHtml(n)+'<div class="t"><b>'+esc(n.country)+'</b><span>'+esc(n.title||'Выбран вручную')+'</span></div>'+fmtPing(n.ping)+'<svg class="chev"><use href="#i-chev"/></svg>';
+  }
+  sr.setAttribute('aria-label','Выбор сервера. Сейчас: '+(S.autoOn?'автовыбор':(cur?cur.country+' '+cur.title:'не выбран')));
+
+  // уведомление об аккаунте
+  var nb=$('notice'), a=S.acct, h='';
+  if(nat('loggedIn')===false && !nat('hasSub')){
+    h='<div class="notice"><b>Нужен вход</b>Войдите или введите ключ — без него подключиться нельзя.<div class="acts"><button class="btn small" type="button" data-a="redeem">Ввести ключ или код</button><button class="btn small ghost" type="button" data-a="cab-profile">Войти через кабинет</button></div></div>';
+  } else if(a==='expired'){
+    h='<div class="notice"><b>Подписка закончилась</b>Продлите доступ, чтобы снова подключаться.<div class="acts"><button class="btn small" type="button" data-a="cab-plans">Тарифы и оплата</button></div></div>';
+  } else if(a==='device_limit'||a==='blocked'){
+    h='<div class="notice"><b>'+(a==='blocked'?'Доступ заблокирован':'Достигнут лимит устройств')+'</b>Напишите в поддержку — поможем.<div class="acts"><button class="btn small" type="button" data-a="cab-support">Поддержка</button></div></div>';
+  } else if(a==='no_account'){
+    h='<div class="notice"><b>Нужен ключ</b>Введите ключ или код активации.<div class="acts"><button class="btn small" type="button" data-a="redeem">Ввести ключ или код</button></div></div>';
+  }
+  nb.innerHTML=h;
+}
+function pad(n){ return (n<10?'0':'')+n; }
+function tickTimer(){
+  var el=$('timer');
+  if(S.state!=='on' || !S.since){ el.textContent=''; return; }
+  var sec=Math.max(0,Math.floor((Date.now()+S.off-S.since)/1000));
+  el.textContent=pad(Math.floor(sec/3600))+':'+pad(Math.floor(sec/60)%60)+':'+pad(sec%60);
+}
+function onPower(){
+  var n=Date.now(); if(n<S.lockUntil) return; S.lockUntil=n+900;
+  if(S.state==='on'||S.state==='connecting'){ S.switching=0; nat('disconnect'); setState('off'); toast('Отключено'); return; }
+  startConnect();
+}
+function startConnect(){
+  S.err=''; nat('haptic'); setState('connecting'); nat('connect');
+}
+
+/* ───────── серверы ───────── */
+function groupNodes(){
+  var order=[], map={};
+  S.nodes.forEach(function(n){ var k=n.cc||'other'; if(!map[k]){ map[k]={key:k,cc:n.cc,flag:n.flag,country:n.country,nodes:[]}; order.push(k);} map[k].nodes.push(n); });
+  return order.map(function(k){return map[k];});
+}
+function nodeRow(n, inGroup, key){
+  var cls='item'+(n.selected?' sel':'')+(n.active?' sel':'')+(n.available?'':' off');
+  var title=inGroup? (n.title||n.country) : n.country;
+  var sub=inGroup? n.note : (n.title+(n.note?' · '+n.note:''));
+  var badge = n.active ? '<span class="badge">СЕЙЧАС</span>' : (n.selected && S.state!=='on' ? '<span class="badge soft">ВЫБРАН</span>' : '');
+  if(!n.available) badge='<span class="badge warn">ЗАНЯТ</span>';
+  return '<button type="button" class="'+cls+'" data-pick="'+esc(n.guid)+'" role="radio" aria-checked="'+((n.selected||n.active)?'true':'false')+'">'
+    +(inGroup?'':flagHtml(n))+'<div class="t"><b>'+esc(title)+'</b>'+(sub?'<span>'+esc(sub)+'</span>':'')+'</div>'+badge+fmtPing(n.ping)+'<span class="radio" aria-hidden="true"></span></button>';
+}
+function renderServers(){
+  var el=$('s-servers'), h='';
+  h+='<div class="head"><h1>Серверы</h1><button type="button" class="iconbtn'+(S.pingBusy?' spin':'')+'" data-a="ping"'+(S.pingBusy?' disabled':'')+'><svg><use href="#i-refresh"/></svg>'+(S.pingBusy?'Замеряю…':'Проверить')+'</button></div>';
+  if(!S.nodes.length){
+    h+='<div class="one"><span class="flag">🔑</span><b>Список серверов пуст</b><p>Серверы появятся после получения ключа. Если ключ уже есть — обновите подписку.</p><div class="acts"><button class="btn small" type="button" data-a="redeem">Ввести ключ или код</button><button class="btn small ghost" type="button" data-a="refreshSub">Обновить подписку</button></div></div>';
+    el.innerHTML=h; return;
+  }
+  var cur=S.act||S.sel, on=S.state==='on';
+  if(S.nodes.length===1){
+    var n=S.nodes[0];
+    h+='<div class="cur"><div><small>'+(on?'Подключено через':'Ваш сервер')+'</small><b>'+esc(n.country+(n.title?' · '+n.title:''))+'</b>'+(n.note?'<span>'+esc(n.note)+'</span>':'')+'</div></div>';
+    h+='<div class="one">'+flagHtml(n)+'<b>'+esc(n.country)+'</b>'+(n.title?'<span class="sub">'+esc(n.title)+'</span>':'')+'<div style="margin-top:.6rem">'+fmtPing(n.ping)+'</div>'
+      +'<p>В вашей подписке один сервер — он выбран и используется для всех подключений. Автовыбор включится, когда появятся другие серверы.</p>'
+      +'<div class="acts"><button class="btn small ghost" type="button" data-a="cab-plans">Тарифы и серверы</button></div></div>';
+    el.innerHTML=h; return;
+  }
+  h+='<div class="cur"><span class="flag" aria-hidden="true" style="font-size:1.8rem">'+(S.autoOn&&!cur?'<svg><use href="#i-bolt"/></svg>':(cur?(cur.flag||'🌐'):'🌐'))+'</span><div><small>'+(on?'Подключено через':'Выбрано')+'</small><b>'
+    +esc(S.autoOn&&!(on&&S.act)?'Автовыбор':(cur?cur.country+(cur.title?' · '+cur.title:''):'—'))+'</b>'
+    +(S.autoOn&&on&&S.act?'<span>Автовыбор · лучший из '+S.nodes.length+'</span>':(on?'':'<span>Нажмите на кнопку на главной, чтобы подключиться</span>'))+'</div></div>';
+  h+='<div class="list" role="radiogroup" aria-label="Выбор сервера">';
+  if(S.auto){
+    h+='<button type="button" class="item'+(S.autoOn?' sel':'')+'" data-pick="auto" role="radio" aria-checked="'+(S.autoOn?'true':'false')+'">'+'<span class="flag" aria-hidden="true"><svg><use href="#i-bolt"/></svg></span>'+'<div class="t"><b>Автовыбор</b><span>Самый быстрый узел из '+S.nodes.length+'</span></div>'+(S.autoOn?'<span class="badge soft">ВКЛЮЧЁН</span>':'')+'<span class="radio" aria-hidden="true"></span></button>';
+  }
+  groupNodes().forEach(function(g){
+    if(g.nodes.length===1){ h+=nodeRow(g.nodes[0], false); return; }
+    var has=g.nodes.some(function(n){return n.active||n.selected;});
+    var open = S.open[g.key]===undefined ? has : S.open[g.key];
+    var best=g.nodes.map(function(n){return n.ping;}).filter(function(p){return p>0;}).sort(function(a,b){return a-b;})[0]||0;
+    h+='<div class="grp'+(open?' open':'')+(has?' has':'')+'"><button type="button" class="item" data-grp="'+esc(g.key)+'" aria-expanded="'+(open?'true':'false')+'">'
+      +(g.flag?'<span class="flag" aria-hidden="true">'+g.flag+'</span>':'<span class="flag cc">VPN</span>')
+      +'<div class="t"><b>'+esc(g.country)+'</b><span>'+g.nodes.length+' '+plural(g.nodes.length,'сервер','сервера','серверов')+'</span></div>'
+      +(g.nodes.some(function(n){return n.active;})?'<span class="badge">СЕЙЧАС</span>':'')+fmtPing(best)+'<svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></button>'
+      +'<div class="nodes">'+g.nodes.map(function(n){return nodeRow(n,true);}).join('')+'</div></div>';
+  });
+  h+='</div>';
+  el.innerHTML=h;
+}
+function pick(guid){
+  var n=Date.now(); if(n<S.lockUntil) return; S.lockUntil=n+500;
+  if(guid==='auto'){ if(S.autoOn) { go('home'); return; } }
+  else { var nd=S.nodes.filter(function(x){return x.guid===guid;})[0];
+    if(nd && !S.autoOn && nd.selected){ go('home'); return; }
+    if(nd && !nd.available){ toast('Этот сервер сейчас перегружен — выберите другой или Автовыбор'); return; } }
+  nat('select', guid);
+  var was=S.state;
+  loadServers();
+  if(was==='on'||was==='connecting'){ S.switching=Date.now()+12000; S.state='connecting'; S.connAt=Date.now(); }
+  var nm = guid==='auto' ? 'Автовыбор' : ((S.nodes.filter(function(x){return x.guid===guid;})[0]||{}).country||'Сервер');
+  toast(was==='on'||was==='connecting' ? 'Переключаю на: '+nm : (nm+' выбран. Нажмите на волка, чтобы подключиться'));
+  go('home');
+}
+function doPing(){
+  if(S.pingBusy) return; S.pingBusy=true; S.pingAt=Date.now(); renderServers();
+  nat('pingAll');
+  setTimeout(function(){ if(S.pingBusy){ S.pingBusy=false; loadServers(); renderAll(); } }, 14000);
+}
+
+/* ───────── настройки ───────── */
+function sw(on){ return '<span class="sw" role="switch" aria-checked="'+(on?'true':'false')+'"></span>'; }
+function row(key,title,sub,right,cls){ return '<button type="button" class="row'+(cls?' '+cls:'')+'" data-r="'+key+'"><div class="t"><b>'+esc(title)+'</b>'+(sub?'<span>'+esc(sub)+'</span>':'')+'</div>'+right+'</button>'; }
+var CH='<svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg>';
+function renderSettings(){
+  var el=$('s-settings'), me=S.me||{}, d=natJSON('directInfo',{on:false,count:0});
+  var h='<h1>Настройки</h1>';
+  h+='<h2>Подключение</h2><div class="rows">'
+    +row('auto','Автовыбор сервера','Подбирать самый быстрый узел при каждом подключении',sw(nat('autoMode')!==false))
+    +row('boot','Автозапуск','Включать VPN после перезагрузки телефона',sw(!!nat('autoStart')))
+    +row('always','Постоянный VPN Android','Системная настройка: держать VPN всегда включённым',CH)
+    +row('adv','Расширенные настройки','DNS, сетевой стек, журнал подключения',CH)
+    +'</div>';
+  h+='<h2>Маршрутизация</h2><div class="rows">'
+    +row('ru','Российские сайты напрямую','Банки, госуслуги и .ru открываются без VPN',sw(nat('ruDirect')!==false))
+    +row('apps','Приложения без VPN',d.on?(d.count+' '+plural(d.count,'приложение','приложения','приложений')+' идут мимо VPN'):'Выключено',CH)
+    +'</div>';
+  var st = me.status==='active' ? 'Доступ до '+(me.until||'—') : me.status==='expired' ? 'Подписка закончилась' : (S.acct==='expired'?'Подписка закончилась':(me.status?'Нет активной подписки':(nat('hasSub')?'Ключ установлен':'Ключа нет')));
+  h+='<h2>Подписка</h2><div class="rows">'
+    +row('acct',me.name||'Мой доступ',st+' · тариф, срок и устройства',CH)
+    +row('plans','Тарифы и оплата','Продлить или сменить тариф',CH)
+    +row('redeem','Ввести ключ или код','Активация, промокод, новый ключ',CH)
+    +row('refreshSub','Обновить подписку','Заново получить список серверов',CH)
+    +row('key','Ключ и другие устройства','Скопировать ключ, QR, другое устройство',CH)
+    +row('bonus','Бонусы и друзья','Промокоды, приглашения, подарки',CH)
+    +row('tg','Привязать Telegram','Один аккаунт в боте и в приложении',CH)
+    +row('tv','Подключить телевизор','Ввести код с экрана Siberia Connect TV',CH)
+    +row('logout','Выйти из аккаунта','Ключ и серверы будут удалены с этого телефона',CH,'danger')
+    +'</div>';
+  var b=S.build||{};
+  h+='<h2>Система и поддержка</h2><div class="rows">'
+    +row('support','Поддержка','Ответим в приложении',CH)
+    +row('channel','Наш канал','Новости и статус серверов',CH)
+    +row('terms','Соглашение и конфиденциальность','',CH)
+    +row('vpnset','Системные настройки VPN','Открыть настройки Android → VPN',CH)
+    +'</div>';
+  h+='<div class="ver">'+(b.ice?'Тестовая сборка · ':'')+'версия '+esc(b.version||nat('version')||'—')+(b.sha?' · коммит '+esc(b.sha):'')+(b.pkg?'<br>'+esc(b.pkg):'')+'</div>';
+  el.innerHTML=h;
+}
+function ask(){ /* аккаунт: статус для настроек */
+  var tok=''; try{ tok=localStorage.getItem('sc_tok')||''; }catch(e){}
+  if(!tok) return;
+  var ctl=window.AbortController?new AbortController():null, tm=setTimeout(function(){ctl&&ctl.abort();},9000);
+  fetch('/app/api/me',{cache:'no-store',signal:ctl?ctl.signal:undefined,headers:{'X-App-Token':tok,'Content-Type':'application/json'}})
+    .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok!==false){ S.me={name:d.name,status:d.status,until:d.until,channel:d.channel}; if(S.tab==='settings') renderSettings(); } })
+    .catch(function(){}).then(function(){clearTimeout(tm);});
+}
+function onRow(k){
+  switch(k){
+    case 'auto': var v=nat('autoMode')!==false; nat('setAutoMode',!v); setTimeout(function(){loadServers();renderAll();},250); break;
+    case 'boot': nat('setAutoStart',!nat('autoStart')); renderSettings(); break;
+    case 'always': case 'vpnset': nat('vpnSettings'); break;
+    case 'adv': nat('advanced'); break;
+    case 'ru': nat('setRuDirect',!(nat('ruDirect')!==false)); setTimeout(renderSettings,150); toast(S.state==='on'?'Применяю — VPN перезапустится':'Сохранено'); break;
+    case 'apps': openApps(); break;
+    case 'acct': nat('openCabinet','stats'); break;
+    case 'plans': nat('openCabinet','plans'); break;
+    case 'redeem': nat('redeemDialog'); break;
+    case 'refreshSub': refreshSub(); break;
+    case 'key': nat('openCabinet','key'); break;
+    case 'bonus': nat('openCabinet','bonus'); break;
+    case 'tg': nat('linkTelegram'); break;
+    case 'tv': openTv(); break;
+    case 'logout': openLogout(); break;
+    case 'support': nat('openCabinet','support'); break;
+    case 'channel': nat('openExternal',(S.me&&S.me.channel)||'https://t.me/sibirconnect'); break;
+    case 'terms': nat('openExternal','https://sibir-cloud-api.site/terms'); break;
+  }
+}
+function refreshSub(){
+  var u=nat('subUrl');
+  if(!u){ toast('Ключа нет — введите ключ или код'); nat('redeemDialog'); return; }
+  toast('Обновляю подписку…'); nat('setSub',u);
+}
+
+/* ───────── шторки ───────── */
+function openSheet(html){ $('sheet').innerHTML=html; $('sheet').classList.add('on'); $('shade').classList.add('on'); }
+function closeSheet(){ $('sheet').classList.remove('on'); $('shade').classList.remove('on'); appsState=null; }
+function openLogout(){
+  openSheet('<h3>Выйти из аккаунта?</h3><p>VPN отключится, ключ и список серверов удалятся с этого телефона. Войти снова можно по ключу или коду.</p><div class="acts"><button class="btn ghost" type="button" data-a="close">Отмена</button><button class="btn" type="button" data-a="logoutGo" style="background:linear-gradient(180deg,#FFB0B0,#FF7C7C)">Выйти</button></div>');
+}
+function openTv(){
+  openSheet('<h3>Подключить телевизор</h3><p>Установите Siberia Connect TV на телевизор, откройте его — на экране появится код. Введите код здесь.</p><input class="inp" id="tvcode" inputmode="numeric" autocomplete="off" placeholder="Код с экрана ТВ" maxlength="12"><div class="acts"><button class="btn ghost" type="button" data-a="close">Отмена</button><button class="btn" type="button" data-a="tvGo">Подключить</button></div>');
+  setTimeout(function(){ var i=$('tvcode'); i&&i.focus(); },250);
+}
+var appsState=null;
+function openApps(){
+  appsState={loading:true,on:false,list:[],q:''};
+  renderApps(); nat('loadApps');
+}
+function renderApps(){
+  var a=appsState; if(!a) return;
+  var body;
+  if(a.loading) body='<p>Загружаю список приложений…</p>';
+  else if(a.error) body='<p>'+esc(a.error)+'</p>';
+  else {
+    var q=a.q.toLowerCase();
+    var rows=a.list.filter(function(x){return !q||x.name.toLowerCase().indexOf(q)>=0;}).map(function(x){
+      return '<button type="button" class="item'+(x.sel?' sel':'')+'" data-app="'+esc(x.pkg)+'">'+(x.icon?'<img alt="" src="'+esc(x.icon)+'">':'<img alt="">')+'<div class="t"><b>'+esc(x.name)+'</b><span>'+(x.rec?'рекомендуем без VPN':x.vpn?'лучше через VPN':'')+'</span></div><span class="chk"></span></button>';
+    }).join('');
+    body='<button type="button" class="row" data-a="appsMaster" style="border:1px solid var(--line);border-radius:14px;margin-bottom:.6rem"><div class="t"><b>Приложения без VPN</b><span>Отмеченные приложения идут напрямую, остальные — через VPN</span></div>'+sw(a.on)+'</button>'
+      +'<input class="inp" id="appq" placeholder="Поиск приложений" value="'+esc(a.q)+'" style="margin-bottom:.6rem">'
+      +'<div class="list apps">'+(rows||'<p>Ничего не найдено</p>')+'</div>';
+  }
+  var keep=document.activeElement&&document.activeElement.id==='appq';
+  openSheet('<h3>Приложения без VPN</h3>'+body+'<div class="acts"><button class="btn ghost" type="button" data-a="close">Отмена</button><button class="btn" type="button" data-a="appsSave"'+(a.loading||a.error?' disabled':'')+'>Сохранить</button></div>');
+  if(keep){ var i=$('appq'); if(i){ i.focus(); try{i.setSelectionRange(i.value.length,i.value.length);}catch(e){} } }
+}
+
+/* ───────── навигация, события ───────── */
+function go(t){
+  S.tab=t;
+  ['home','servers','settings'].forEach(function(x){ $('s-'+x).classList.toggle('on',x===t); });
+  document.querySelectorAll('.nav button').forEach(function(b){ var on=b.getAttribute('data-t')===t; b.classList.toggle('on',on); b.setAttribute('aria-current',on?'page':'false'); });
+  loadServers(); renderAll(); window.scrollTo(0,0);
+  if(t==='servers' && !S.pingBusy && Date.now()-S.pingAt>30000 && S.state!=='connecting') doPing();
+  if(t==='settings') ask();
+}
+function renderAll(){
+  renderHome();
+  if(S.tab==='servers') renderServers();
+  if(S.tab==='settings') renderSettings();
+}
+var tt; function toast(t){ var e=$('toast'); e.textContent=t; e.classList.add('on'); clearTimeout(tt); tt=setTimeout(function(){e.classList.remove('on');},3000); }
+
+window.scNative=function(ev){
+  if(!ev) return;
+  switch(ev.type){
+    case 'state': setState(ev.state, ev.error); break;
+    case 'toast': if(ev.text) toast(ev.text); break;
+    case 'pings': S.pingBusy=false; loadServers(); renderAll(); break;
+    case 'incident': S.incident=ev.code||''; renderHome(); break;
+    case 'account': S.acct=ev.state||''; renderAll(); break;
+    case 'sub': S.acct=''; loadServers(); renderAll(); toast(ev.ok?'Подписка обновлена: '+(ev.count||0)+' '+plural(ev.count||0,'сервер','сервера','серверов'):(ev.error||'Не удалось обновить подписку')); break;
+    case 'apps':
+      if(appsState){ appsState.loading=false; if(ev.error) appsState.error=ev.error; else { appsState.on=!!ev.on; appsState.list=ev.list||[]; } renderApps(); } break;
+  }
+};
+window.scBack=function(){
+  if($('sheet').classList.contains('on')){ closeSheet(); return true; }
+  if(S.tab!=='home'){ go('home'); return true; }
+  return false;
+};
+
+document.addEventListener('click',function(e){
+  var t=e.target.closest('[data-t],[data-pick],[data-grp],[data-r],[data-a],[data-app]'); if(!t) return;
+  if(t.hasAttribute('data-t')) return go(t.getAttribute('data-t'));
+  if(t.hasAttribute('data-pick')) return pick(t.getAttribute('data-pick'));
+  if(t.hasAttribute('data-grp')){ var k=t.getAttribute('data-grp'); var g=t.parentNode; var open=!g.classList.contains('open'); S.open[k]=open; g.classList.toggle('open',open); t.setAttribute('aria-expanded',open?'true':'false'); return; }
+  if(t.hasAttribute('data-r')) return onRow(t.getAttribute('data-r'));
+  if(t.hasAttribute('data-app')){ var p=t.getAttribute('data-app'); appsState.list.forEach(function(x){ if(x.pkg===p) x.sel=!x.sel; }); return renderApps(); }
+  var a=t.getAttribute('data-a');
+  switch(a){
+    case 'retry': S.lockUntil=0; startConnect(); break;
+    case 'servers': go('servers'); break;
+    case 'ping': doPing(); break;
+    case 'redeem': nat('redeemDialog'); break;
+    case 'refreshSub': refreshSub(); break;
+    case 'close': closeSheet(); break;
+    case 'logoutGo': closeSheet(); nat('logout'); break;
+    case 'tvGo': var c=($('tvcode')||{}).value||''; if(c.replace(/\D/g,'').length<6){ toast('Введите код с экрана телевизора'); break; } closeSheet(); nat('tvApprove',c.trim()); toast('Проверяю код…'); break;
+    case 'appsMaster': appsState.on=!appsState.on; renderApps(); break;
+    case 'appsSave': var set=appsState.list.filter(function(x){return x.sel;}).map(function(x){return x.pkg;}); nat('setDirect',appsState.on,JSON.stringify(set)); closeSheet(); toast(S.state==='on'?'Применяю — VPN перезапустится':'Сохранено'); setTimeout(renderSettings,200); break;
+    default: if(a&&a.indexOf('cab-')===0) nat('openCabinet',a.slice(4));
+  }
+});
+document.addEventListener('input',function(e){ if(e.target.id==='appq'&&appsState){ appsState.q=e.target.value; renderApps(); } });
+$('shade').addEventListener('click',closeSheet);
+$('orb').addEventListener('click',onPower);
+$('srvRow').addEventListener('click',function(){ go('servers'); });
+
+/* возврат из фона: статус и таймер берутся из фактического состояния VPN, а не из памяти страницы */
+function resume(){ syncState(); loadServers(); renderAll(); setTimeout(syncState,800); }
+document.addEventListener('visibilitychange',function(){ if(!document.hidden) resume(); });
+window.addEventListener('focus',resume);
+window.addEventListener('pageshow',resume);
+
+/* сторожевые таймеры: подключение не должно висеть вечно, таймер идёт каждую секунду */
+setInterval(function(){
+  tickTimer();
+  if(S.switching && Date.now()>S.switching){ S.switching=0; syncState(); }
+  if(S.state==='connecting'){
+    var el=Date.now()-S.connAt;
+    if(el>1500 && Math.round(el/1500)!==S._pl){ S._pl=Math.round(el/1500); var v=nat('vpnState'); if(v==='on') setState('on'); else if(v==='off' && el>5000 && !S.switching) setState('error','Подключение прервано. Попробуйте ещё раз'); }
+    if(el>45000) setState('error','Сервер долго не отвечает. Попробуйте сменить локацию');
+  } else if(S.state==='on' && S.tab!=='settings' && Date.now()%10000<1000){ loadServers(); if(S.tab==='servers') renderServers(); renderHome(); }
+},1000);
+
+/* ───────── старт ───────── */
+(function init(){
+  var w=$('wolf'); w.onerror=function(){ w.onerror=null; w.src=BASE+'wolf_first.jpg'; }; w.src=BASE+'wolf-idle.webp';
+  S.build=natJSON('buildInfo',null);
+  S.acct=nat('account')||'';
+  loadServers();
+  var v=nat('vpnState'); if(v===undefined){ var r=nat('isRunning'); v=r?'on':'off'; }
+  S.state=v||'off'; if(S.state==='on') readStats();
+  renderAll();
+  nat('pingAll'); S.pingAt=Date.now();
+  setTimeout(syncState,900);
+})();
+})();
+</script>
+</body>
+</html>
