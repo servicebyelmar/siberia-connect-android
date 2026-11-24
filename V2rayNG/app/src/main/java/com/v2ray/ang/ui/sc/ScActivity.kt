@@ -129,6 +129,16 @@ class ScActivity : ComponentActivity() {
  {"remarks":"Direct LAN domains","outboundTag":"direct","domain":["geosite:private"]}
 ]"""
 
+        /**
+         * Без ссылок на geo-списки: запасной набор, если geoip.dat/geosite.dat недоступны (ядро с geo-правилами тогда не запускается,
+         * даже с BASE_ROUTING — в нём geosite:private). Локальная сеть задана диапазонами, остальное — через VPN.
+         */
+        const val SAFE_ROUTING = """[
+ {"remarks":"Bypass bittorrent","outboundTag":"direct","protocol":["bittorrent"]},
+ {"remarks":"Block udp443","outboundTag":"block","port":"443","network":"udp"},
+ {"remarks":"Direct LAN ranges","outboundTag":"direct","ip":["127.0.0.0/8","10.0.0.0/8","172.16.0.0/12","192.168.0.0/16","169.254.0.0/16","fc00::/7","fe80::/10"]}
+]"""
+
         const val RU_ROUTING = """[
  {"remarks":"Bypass bittorrent","outboundTag":"direct","protocol":["bittorrent"]},
  {"remarks":"Block udp443","outboundTag":"block","port":"443","network":"udp"},
@@ -828,6 +838,7 @@ class ScActivity : ComponentActivity() {
         prefs.edit().remove("since").apply()
         lifecycleScope.launch(Dispatchers.IO) {
             ensureGeoFiles()
+            syncRulesKind()
             runOnUiThread { LauncherManager.startService(this@ScActivity) }
             triedServers.clear()
             watchConnect()
@@ -859,7 +870,8 @@ class ScActivity : ComponentActivity() {
                 MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY_SET, mutableSetOf<String>())
                 prefs.edit().remove("direct_removed").apply()
                 SettingsManager.resetRoutingRulesets(RU_ROUTING)
-                prefs.edit().putBoolean("defaults_v6", true).apply()
+                prefs.edit().putBoolean("defaults_v6", true).putString("split_mode", ScSplitPolicy.SMART)
+                    .putString("rules_kind", "smart").apply()
             }
             if (MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY, false) != true) return
             val viaVpn = prefs.getStringSet("direct_removed", emptySet()) ?: emptySet()
@@ -867,6 +879,59 @@ class ScActivity : ComponentActivity() {
             val before = set.size
             launcherPkgs().filter { it !in NEED_VPN && it !in viaVpn && it !in set }.forEach { set.add(it) }
             if (set.size != before || firstRun) MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY_SET, set)
+        }
+    }
+
+    // ───────────── «Умное разделение трафика» ─────────────
+    // Правила лежат в настройках движка (MMKV, переживают перезапуск); сам режим — в prefs "split_mode".
+    // Режим «умное»: RU_ROUTING (российские домены и адреса напрямую), «весь трафик»: BASE_ROUTING (только служебные правила).
+
+    private fun splitMode(): String = ScSplitPolicy.resolveMode(
+        prefs.getString("split_mode", null),
+        if (prefs.contains("ru_direct")) prefs.getBoolean("ru_direct", true) else null
+    )
+
+    /** Списки geoip/geosite на месте: без них ядро не запустится с правилами geo:, поэтому умные правила не применяем. */
+    private fun geoReady(): Boolean = runCatching {
+        val dir = java.io.File(Utils.userAssetPath(this))
+        listOf("geoip.dat", "geosite.dat").all { n -> java.io.File(dir, n).let { it.exists() && it.length() > 0 } }
+    }.getOrDefault(false)
+
+    private fun appsCustomized(): Boolean = ScSplitPolicy.appsCustomized(
+        prefs.getBoolean("apps_user", false), (prefs.getStringSet("direct_removed", emptySet()) ?: emptySet()).size
+    )
+
+    private fun rulesJson(kind: String): String = when (kind) {
+        "smart" -> RU_ROUTING
+        "safe" -> SAFE_ROUTING
+        else -> BASE_ROUTING
+    }
+
+    /** Приводит правила движка в соответствие с режимом и наличием списков (идемпотентно, чужие правила не трогает без нужды). */
+    private fun syncRulesKind() {
+        val mode = splitMode()
+        val want = ScSplitPolicy.rulesKind(mode, geoReady())
+        val have = prefs.getString("rules_kind", null)
+        if (ScSplitPolicy.mustRewriteRules(have, want)) {
+            runCatching { SettingsManager.resetRoutingRulesets(rulesJson(want)) }
+        }
+        if (have != want) prefs.edit().putString("rules_kind", want).apply()
+    }
+
+    private fun applySplit(mode: String) {
+        prefs.edit().putString("split_mode", mode).putBoolean("ru_direct", mode == ScSplitPolicy.SMART).apply()
+        ensureGeoFiles()
+        val want = ScSplitPolicy.rulesKind(mode, geoReady())
+        runCatching { SettingsManager.resetRoutingRulesets(rulesJson(want)) }
+        prefs.edit().putString("rules_kind", want).apply()
+        when (ScSplitPolicy.appExceptions(mode, appsCustomized())) {
+            ScSplitPolicy.AppExceptions.DISABLE -> MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY, false)
+            ScSplitPolicy.AppExceptions.ENABLE_AUTO -> {
+                MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY, true)
+                MmkvManager.encodeSettings(AppConfig.PREF_BYPASS_APPS, true)
+                syncDirectApps(firstRun = false)
+            }
+            ScSplitPolicy.AppExceptions.KEEP -> Unit
         }
     }
 
@@ -1257,15 +1322,33 @@ class ScActivity : ComponentActivity() {
 
         /** smart_v1: российские сайты и адреса напрямую, мимо VPN (по умолчанию включено) */
         @JavascriptInterface
-        fun ruDirect(): Boolean = prefs.getBoolean("ru_direct", true)
+        fun ruDirect(): Boolean = splitMode() == ScSplitPolicy.SMART
 
         @JavascriptInterface
-        fun setRuDirect(on: Boolean) {
-            prefs.edit().putBoolean("ru_direct", on).apply()
+        fun setRuDirect(on: Boolean) = setSplitMode(if (on) ScSplitPolicy.SMART else ScSplitPolicy.ALL)
+
+        /** «smart» — умное разделение трафика, «all» — весь трафик через VPN. */
+        @JavascriptInterface
+        fun splitMode(): String = this@ScActivity.splitMode()
+
+        @JavascriptInterface
+        fun setSplitMode(mode: String) {
+            val m = if (mode == ScSplitPolicy.ALL) ScSplitPolicy.ALL else ScSplitPolicy.SMART
             lifecycleScope.launch(Dispatchers.IO) {
-                runCatching { SettingsManager.resetRoutingRulesets(if (on) RU_ROUTING else BASE_ROUTING) }
+                runCatching { applySplit(m) }
                 if (running) runOnUiThread { LauncherManager.restartService(this@ScActivity) }
             }
+        }
+
+        /** Режим, доступность правил (списки на месте) и исключения приложений — для экрана настроек. */
+        @JavascriptInterface
+        fun splitInfo(): String {
+            val mode = this@ScActivity.splitMode()
+            val appsOn = MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_PROXY, false) == true &&
+                MmkvManager.decodeSettingsBool(AppConfig.PREF_BYPASS_APPS, false) == true
+            val n = if (appsOn) MmkvManager.decodeSettingsStringSet(AppConfig.PREF_PER_APP_PROXY_SET)?.size ?: 0 else 0
+            return JSONObject().put("mode", mode).put("rules", mode != ScSplitPolicy.SMART || geoReady())
+                .put("appsOn", appsOn).put("count", n).toString()
         }
 
         @JavascriptInterface
@@ -1349,7 +1432,7 @@ class ScActivity : ComponentActivity() {
             val set = mutableSetOf<String>()
             for (i in 0 until arr.length()) arr.optString(i).takeIf { it.isNotBlank() }?.let { set.add(it) }
             val removed = launcherPkgs().filter { it !in set }.toSet()
-            prefs.edit().putStringSet("direct_removed", removed).apply()
+            prefs.edit().putStringSet("direct_removed", removed).putBoolean("apps_user", true).apply()
             MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY, on)
             MmkvManager.encodeSettings(AppConfig.PREF_BYPASS_APPS, true)
             MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_PROXY_SET, set)

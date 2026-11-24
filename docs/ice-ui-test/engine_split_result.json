@@ -1,0 +1,150 @@
+{
+ "xray": "Xray 26.11.9 (Xray, Penetrates Everything.) 676eaf6 (go1.27.3 windows/amd64)",
+ "geoip_sha": "eedb24b3b9fcba27",
+ "geosite_sha": "dc4192dd1b644a38",
+ "scenarios": [
+  {
+   "title": "A. Умное разделение (RU_ROUTING + списки из APK)",
+   "started": true,
+   "rows": [
+    {
+     "target": "yandex.ru (RU-домен, RU-IP)",
+     "engine": "direct",
+     "arrived_at_vpn_server": false
+    },
+    {
+     "target": "example.ru (RU-домен, зарубежный IP)",
+     "engine": "direct",
+     "arrived_at_vpn_server": false
+    },
+    {
+     "target": "vk.com (список, зарубежный IP)",
+     "engine": "direct",
+     "arrived_at_vpn_server": false
+    },
+    {
+     "target": "example.com (вне правил, США)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "www.google.com (вне правил, США)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "77.88.55.88 (RU-IP без имени)",
+     "engine": "direct",
+     "arrived_at_vpn_server": false
+    },
+    {
+     "target": "1.1.1.1 (зарубежный IP без имени)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "192.168.1.1 (локальная сеть)",
+     "engine": "direct",
+     "arrived_at_vpn_server": false
+    }
+   ]
+  },
+  {
+   "title": "B. Весь трафик через VPN (BASE_ROUTING)",
+   "started": true,
+   "rows": [
+    {
+     "target": "yandex.ru (RU-домен, RU-IP)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "example.ru (RU-домен, зарубежный IP)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "vk.com (список, зарубежный IP)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "example.com (вне правил, США)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "www.google.com (вне правил, США)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "77.88.55.88 (RU-IP без имени)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "1.1.1.1 (зарубежный IP без имени)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "192.168.1.1 (локальная сеть)",
+     "engine": "direct",
+     "arrived_at_vpn_server": false
+    }
+   ]
+  },
+  {
+   "title": "C. Умные правила, но списков нет (то, что было бы без защиты)",
+   "started": false,
+   "error": "Failed to start: main: failed to load config files: [C:\\Users\\ELMAR\\Documents\\sc-ice-work\\enginetest\\client.json] > infra/conf: failed to build routing configuration > infra/conf: invalid field rule >"
+  },
+  {
+   "title": "D. Списков нет → приложение берёт SAFE_ROUTING (без geo)",
+   "started": true,
+   "rows": [
+    {
+     "target": "yandex.ru (RU-домен, RU-IP)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "example.ru (RU-домен, зарубежный IP)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "vk.com (список, зарубежный IP)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "example.com (вне правил, США)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "www.google.com (вне правил, США)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "77.88.55.88 (RU-IP без имени)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "1.1.1.1 (зарубежный IP без имени)",
+     "engine": "proxy",
+     "arrived_at_vpn_server": true
+    },
+    {
+     "target": "192.168.1.1 (локальная сеть)",
+     "engine": "direct",
+     "arrived_at_vpn_server": false
+    }
+   ]
+  }
+ ]
+}

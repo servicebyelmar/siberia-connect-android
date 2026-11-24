@@ -18,7 +18,7 @@ html{font-size:16px;-webkit-text-size-adjust:100%}
 html,body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Roboto","Segoe UI",sans-serif;line-height:1.35;overscroll-behavior:none}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:inherit;cursor:pointer}
 button:focus-visible,input:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
-.app{max-width:560px;margin:0 auto;min-height:100vh;padding:.75rem var(--gut) calc(var(--navh) + 1rem)}
+.app{max-width:560px;margin:0 auto;min-height:100vh;padding:.5rem var(--gut) calc(var(--navh) + .75rem)}
 .screen{display:none}.screen.on{display:block}
 h1{font-size:1.4rem;margin:.25rem 0 .9rem;font-weight:700}
 h2{font-size:1rem;font-weight:700;color:var(--mut);margin:1.5rem 0 .5rem}
@@ -45,43 +45,38 @@ h2{font-size:1rem;font-weight:700;color:var(--mut);margin:1.5rem 0 .5rem}
 .live{font-size:.75rem;font-weight:700;padding:.15rem .5rem;border-radius:999px;border:1px solid rgba(143,219,255,.5);color:var(--ice);white-space:nowrap;flex:none}
 
 /* ───── главная ───── */
-.home{display:flex;flex-direction:column;min-height:calc(100vh - var(--navh) - 1.75rem)}
+.home{display:flex;flex-direction:column;min-height:calc(100vh - var(--navh) - 1.25rem);min-height:calc(100dvh - var(--navh) - 1.25rem)}
 .brand{font-size:.95rem;font-weight:700;color:var(--mut);letter-spacing:.02em}
-.stat{width:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;text-align:center;padding:1.25rem 0 .25rem;min-height:7rem}
+.stat{width:100%;flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:.5rem 0 .25rem;min-height:5.4rem}
 .st{font-size:min(2rem,10vw);font-weight:800;line-height:1.15;letter-spacing:.2px;overflow-wrap:break-word;max-width:100%}
 .st.on{color:var(--ice)}.st.error{color:var(--warn)}
 .tm{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";color:var(--mut);font-size:1.05rem;margin-top:.3rem;min-height:1.5rem}
 .msg{margin-top:.35rem;font-size:.95rem;color:#F6DDA6;min-height:1.3rem;max-width:22rem}
 .msg small{display:block;color:var(--mut);font-size:.82rem;margin-top:.15rem}
 
-/* сцена кнопки: область шерсти/кристалла в 1,5 раза шире кнопки, край растворяется в фоне */
-.stage{position:relative;width:min(80vw,19rem);aspect-ratio:1;margin:.25rem auto 0;display:grid;place-items:center;flex:none}
-.stage>*{position:absolute}
-.fl-mask{-webkit-mask-image:radial-gradient(circle closest-side,#000 68%,transparent 100%);mask-image:radial-gradient(circle closest-side,#000 68%,transparent 100%)}
-.crystal.fl-mask{-webkit-mask-image:radial-gradient(circle closest-side,#000 88%,transparent 100%);mask-image:radial-gradient(circle closest-side,#000 88%,transparent 100%)}
-.fur{inset:0;background:#2b2e32 url(fur.jpg) center/cover;filter:brightness(1.12) contrast(1.1);opacity:1;transition:opacity .9s ease}
-.stage[data-s=on] .fur{opacity:.2}
-.crystal{inset:0;width:100%;height:100%;opacity:0;transition:opacity .9s ease;color:#BFEAFF}
-.stage[data-s=on] .crystal{opacity:1}
-.snow{inset:0;width:100%;height:100%;pointer-events:none;opacity:0;transition:opacity 1.2s ease}
-.stage[data-s=on] .snow{opacity:1}
-.wave{left:50%;top:50%;width:56%;aspect-ratio:1;margin:-28% 0 0 -28%;border-radius:50%;border:1.5px solid rgba(220,240,255,.6);
-  box-shadow:0 0 14px rgba(190,230,255,.35),inset 0 0 16px rgba(190,230,255,.22);opacity:0;pointer-events:none}
-.stage[data-s=connecting] .wave{animation:wave 2.4s ease-out infinite}
-.stage[data-s=connecting] .wave.w2{animation-delay:1.2s}
-@keyframes wave{0%{transform:scale(.9);opacity:0}14%{opacity:.8}100%{transform:scale(1.7);opacity:0}}
-.pbtn{width:66.7%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(255,255,255,.07);
-  background:radial-gradient(circle at 36% 28%,#3a4249 0%,#242a30 52%,#171b1f 100%);
-  box-shadow:inset 0 2px 1px rgba(255,255,255,.12),inset 0 -10px 18px rgba(0,0,0,.45),0 12px 26px rgba(0,0,0,.55);
-  transition:transform .12s ease,box-shadow .12s ease,background .6s ease;color:#E8EEF3}
-.pbtn svg{width:34%;height:34%;display:block}
-.stage[data-s=connecting] .pbtn{transform:translateY(2px) scale(.955);box-shadow:inset 0 5px 14px rgba(0,0,0,.6),inset 0 -2px 1px rgba(255,255,255,.06),0 4px 12px rgba(0,0,0,.5)}
-.stage[data-s=on] .pbtn{color:#06202F;border-color:rgba(255,255,255,.25);
-  background:radial-gradient(circle at 36% 26%,#D6F3FF 0%,#9EDDFA 48%,#63BFEA 100%);
-  box-shadow:inset 0 2px 1px rgba(255,255,255,.55),inset 0 -10px 18px rgba(30,110,160,.35),0 10px 30px rgba(79,195,247,.35),0 12px 26px rgba(0,0,0,.45)}
-.stage[data-s=on] .pbtn:active{transform:translateY(2px) scale(.965)}
-.cap{text-align:center;font-weight:700;font-size:1rem;color:var(--ice);margin-top:.5rem;min-height:1.5rem}
-.srv{display:flex;align-items:center;gap:.75rem;width:100%;padding:.8rem var(--gut);border-radius:var(--r);background:var(--panel);border:1px solid var(--line);min-height:3.6rem;margin-top:.9rem}
+/* сцена «Сибирский хребет»: два слоя одной геометрии (off/on), диск — живая кнопка поверх нарисованного.
+   Меняется только свет: при подтверждении подключения от края диска к волку один раз пробегает голубой свет. */
+@property --sw{syntax:'<percentage>';inherits:false;initial-value:100%}
+.stage{position:relative;--sh:min(76.7vw,36vh);--sh:min(76.7vw,36dvh);--sw:calc(var(--sh)*1.3044);width:var(--sw);height:var(--sh);margin:.25rem 0 0 calc((100% - var(--sw))/2);flex:none;--dx:49.94%;--dy:54.4%;--mx:65.2%;--my:40.6%}
+.ridge{position:absolute;inset:0;background:center/100% 100% no-repeat;mix-blend-mode:lighten;pointer-events:none}
+.ridge.off{background-image:url(ridge-off.webp)}
+.ridge.on{background-image:url(ridge-on.webp);opacity:0;transition:opacity .6s ease;
+  -webkit-mask-image:radial-gradient(circle at var(--mx) var(--my),#000 var(--sw),transparent calc(var(--sw) + 10%));
+  mask-image:radial-gradient(circle at var(--mx) var(--my),#000 var(--sw),transparent calc(var(--sw) + 10%))}
+.stage[data-s=on] .ridge.on{opacity:1;transition:none;animation:sweep 1.8s cubic-bezier(.4,0,.3,1) 1}
+@keyframes sweep{from{--sw:-10%}to{--sw:100%}}
+.stage::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 55% 56% at 50% 52%,transparent 60%,var(--bg) 100%)}
+.pbtn{position:absolute;left:var(--dx);top:var(--dy);width:38.6%;aspect-ratio:1;z-index:2;transform:translate(-50%,-50%);border-radius:50%;display:grid;place-items:center;
+  border:1px solid rgba(255,255,255,.07);color:#D2D9DF;
+  background:radial-gradient(circle at 38% 30%,#30353a 0%,#1e2226 58%,#14171a 100%);
+  box-shadow:inset 0 2px 1px rgba(255,255,255,.1),inset 0 -8px 16px rgba(0,0,0,.5),0 6px 18px rgba(0,0,0,.55);
+  transition:transform .12s ease,box-shadow .12s ease}
+.pbtn svg{width:46%;height:46%;display:block;transition:color .6s ease,filter .6s ease;filter:drop-shadow(0 1px 1px rgba(0,0,0,.6))}
+.stage[data-s=connecting] .pbtn{transform:translate(-50%,-50%) translateY(2px) scale(.955);box-shadow:inset 0 5px 14px rgba(0,0,0,.65),inset 0 -2px 1px rgba(255,255,255,.05),0 3px 10px rgba(0,0,0,.5)}
+.stage[data-s=on] .pbtn svg{color:#6FD0FF;filter:drop-shadow(0 0 7px rgba(79,195,247,.85))}
+.stage[data-s=on] .pbtn:active{transform:translate(-50%,-50%) translateY(2px) scale(.965)}
+.cap{text-align:center;font-weight:700;font-size:1rem;color:var(--ice);margin-top:.25rem;min-height:1.4rem}
+.srv{display:flex;align-items:center;gap:.75rem;width:100%;padding:.8rem var(--gut);border-radius:var(--r);background:var(--panel);border:1px solid var(--line);min-height:3.4rem;margin-top:.5rem;flex-wrap:wrap;row-gap:.3rem}
 .srv:active{background:var(--panel2)}
 .srv .t{flex:1 1 0;min-width:0}
 .srv .sig,.srv .sigtx{margin-left:auto}
@@ -128,6 +123,23 @@ h2{font-size:1rem;font-weight:700;color:var(--mut);margin:1.5rem 0 .5rem}
 .sw[aria-checked=true]{background:rgba(79,195,247,.35)}
 .sw[aria-checked=true]::after{transform:translateX(19px);background:var(--ice)}
 .ver{margin:1.5rem 0 0;color:var(--mut);font-size:.82rem;overflow-wrap:break-word}
+
+.splitrow{display:flex;align-items:center}
+.splitrow .set{border-top:0;flex:1 1 0;min-width:0}
+.splitrow .swb{padding:.8rem var(--gut) .8rem .25rem;display:flex;align-items:center}
+.state{font-weight:700;font-style:normal}.state.on{color:var(--ice)}
+.explain{margin:0;padding:0 var(--gut) .85rem;color:#B4C0CB;font-size:.9rem;overflow-wrap:break-word}
+.subhead{display:flex;align-items:center;gap:.5rem;margin:.1rem 0 .6rem}
+.subhead h1{margin:0}
+.back{min-width:2.75rem;min-height:2.75rem;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-size:1.4rem;line-height:1;display:grid;place-items:center;color:var(--ice)}
+.opt{align-items:flex-start}
+.opt .rd{width:22px;height:22px;border-radius:50%;border:2px solid #3b4651;flex:none;margin-top:.1rem;display:grid;place-items:center}
+.opt[aria-checked=true] .rd{border-color:var(--ice2)}.opt[aria-checked=true] .rd::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--ice2)}
+.opt[aria-checked=true]{background:var(--tint)}
+ol.rules{margin:.25rem 0 0;padding-left:1.25rem;color:#B4C0CB;font-size:.92rem}
+ol.rules li{margin:.2rem 0}
+.hint2{padding:.8rem var(--gut);color:#B4C0CB;font-size:.92rem}
+.hint2 b{color:var(--tx)}
 
 /* ───── навигация ───── */
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:#0B0D10;border-top:1px solid var(--line)}
@@ -178,18 +190,10 @@ h2{font-size:1rem;font-weight:700;color:var(--mut);margin:1.5rem 0 .5rem}
         <div class="msg" id="msg"></div>
       </div>
       <div class="stage" id="stage" data-s="off">
-        <div class="fur fl-mask" aria-hidden="true"></div>
-        <svg class="crystal fl-mask" viewBox="-100 -100 200 200" aria-hidden="true">
-          <g id="armset" fill="none" stroke="currentColor" stroke-linecap="round">
-            <g id="arm"><path d="M0 0V-96" stroke-width="3.2"/><path d="M0-72 -13-85M0-72 13-85M0-84 -9-93M0-84 9-93" stroke-width="2.2"/><path d="M0-96 -4-90M0-96 4-90" stroke-width="2"/></g>
-            <use href="#arm" transform="rotate(60)"/><use href="#arm" transform="rotate(120)"/><use href="#arm" transform="rotate(180)"/>
-            <use href="#arm" transform="rotate(240)"/><use href="#arm" transform="rotate(300)"/>
-          </g>
-        </svg>
-        <canvas class="snow fl-mask" id="snow" aria-hidden="true"></canvas>
-        <div class="wave" aria-hidden="true"></div><div class="wave w2" aria-hidden="true"></div>
+        <div class="ridge off" aria-hidden="true"></div>
+        <div class="ridge on" aria-hidden="true"></div>
         <button class="pbtn" id="cta" type="button" aria-label="Подключиться">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 3.2v8.4"/><path d="M7.2 6.6a7.6 7.6 0 1 0 9.6 0"/></g></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3.2v8.4"/><path d="M7.2 6.6a7.6 7.6 0 1 0 9.6 0"/></g></svg>
         </button>
       </div>
       <div class="cap" id="cap">Подключиться</div>
@@ -222,7 +226,7 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){retu
 function plural(n,a,b,c){ var m=n%10,h=n%100; return (m===1&&h!==11)?a:(m>=2&&m<=4&&(h<10||h>=20))?b:c; }
 
 var S = { state:'off', err:'', since:0, off:0, nodes:[], auto:null, autoOn:false, sel:null, act:null, live:null,
-          tab:'home', open:{}, lockUntil:0, switching:0, connAt:0, acct:'', incident:'', me:null, pingBusy:false, pingAt:0, build:null };
+          tab:'home', sub:'', open:{}, lockUntil:0, switching:0, connAt:0, acct:'', incident:'', me:null, pingBusy:false, pingAt:0, build:null };
 
 /* ───────── узлы: страна по данным узла (флаг в названии), название ───────── */
 var CC = {NL:'Нидерланды',FI:'Финляндия',RU:'Россия',KZ:'Казахстан',DE:'Германия',SE:'Швеция',LV:'Латвия',AT:'Австрия',US:'США',LT:'Литва',
@@ -305,7 +309,7 @@ function renderHome(){
   var m=$('msg'); m.innerHTML = s==='error' ? esc(S.err)+(S.incident?'<small>Код обращения: '+esc(S.incident)+'</small>':'') : '';
   var act=s==='on'?'Отключиться':s==='connecting'?'Отменить':s==='error'?'Повторить':'Подключиться';
   $('cta').setAttribute('aria-label',act); $('cap').textContent=act;
-  $('stage').setAttribute('data-s',s); snowSync();
+  $('stage').setAttribute('data-s',s);
   var sr=$('srvRow'), live=(s==='on'||S.switching)?liveNode():null, h, label;
   if(!S.nodes.length){
     h='<span class="ico24"><svg><use href="#i-globe"/></svg></span><div class="t"><b>Серверов пока нет</b><span>Откройте список серверов</span></div>';
@@ -416,36 +420,69 @@ function doPing(){
 function sw(on){ return '<span class="sw" role="switch" aria-checked="'+(on?'true':'false')+'"></span>'; }
 var CH='<svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg>';
 function row(key,title,sub,right,cls){ return '<button type="button" class="set'+(cls?' '+cls:'')+'" data-r="'+key+'"><div class="t"><b>'+esc(title)+'</b>'+(sub?'<span>'+esc(sub)+'</span>':'')+'</div>'+right+'</button>'; }
+var DIRECT_TXT='Напрямую идут российские сайты (.ru, .su, .рф), Яндекс, ВКонтакте, Mail.ru, банки, Госуслуги, магазины и стриминги, адреса России и локальная сеть. Всё остальное — через VPN.';
+function splitInfo(){
+  var i=natJSON('splitInfo',null); if(i) return i;
+  var m=nat('splitMode'); if(!m) m=(nat('ruDirect')!==false)?'smart':'all';
+  var d=natJSON('directInfo',{on:false,count:0});
+  return {mode:m,rules:true,appsOn:!!d.on,count:d.count||0};
+}
+function splitState(i){ return i.mode!=='smart'?'Выключено':(i.rules===false?'Недоступно':'Включено'); }
+function splitExplain(i){
+  if(i.mode!=='smart') return 'Весь трафик, кроме локальной сети, идёт через VPN.';
+  if(i.rules===false) return 'Правила разделения недоступны на этом устройстве — весь трафик идёт через VPN.';
+  return DIRECT_TXT;
+}
+function subHead(title){ return '<div class="subhead"><button type="button" class="back" data-r="back" aria-label="Назад">‹</button><h1>'+esc(title)+'</h1></div>'; }
 function renderSettings(){
-  var el=$('s-settings'), me=S.me||{}, d=natJSON('directInfo',{on:false,count:0});
-  var h='<h1>Настройки</h1>';
-  h+='<h2>Подключение</h2><div class="card">'
-    +row('auto','Автовыбор сервера','Подбирать самый быстрый узел при каждом подключении',sw(nat('autoMode')!==false))
-    +row('boot','Автозапуск','Включать VPN после перезагрузки телефона',sw(!!nat('autoStart')))
-    +row('always','Постоянный VPN Android','Системная настройка: держать VPN всегда включённым',CH)
-    +row('adv','Расширенные настройки','DNS, сетевой стек, журнал подключения',CH)+'</div>';
-  h+='<h2>Маршрутизация</h2><div class="card">'
-    +row('ru','Российские сайты напрямую','Банки, госуслуги и .ru открываются без VPN',sw(nat('ruDirect')!==false))
-    +row('apps','Приложения без VPN',d.on?'Эти приложения работают напрямую':'Все приложения идут через VPN',d.on?'<span class="val">'+d.count+'</span>'+CH:CH)+'</div>';
+  var el=$('s-settings'), me=S.me||{}, i=splitInfo(), h='';
   var st=me.status==='active'?'Доступ до '+(me.until||'—'):me.status==='expired'?'Подписка закончилась':(S.acct==='expired'?'Подписка закончилась':(me.status?'Нет активной подписки':(nat('hasSub')?'Ключ установлен':'Ключа нет')));
-  h+='<h2>Подписка</h2><div class="card">'
-    +row('acct',me.name||'Мой доступ',st+' · тариф, срок и устройства',CH)
-    +row('plans','Тарифы и оплата','Продлить или сменить тариф',CH)
-    +row('redeem','Ввести ключ или код','Активация, промокод, новый ключ',CH)
-    +row('refreshSub','Обновить подписку','Заново получить список серверов',CH)
-    +row('key','Ключ и другие устройства','Скопировать ключ, QR, другое устройство',CH)
-    +row('bonus','Бонусы и друзья','Промокоды, приглашения, подарки',CH)
-    +row('tg','Привязать Telegram','Один аккаунт в боте и в приложении',CH)
-    +row('tv','Подключить телевизор','Ввести код с экрана Siberia Connect TV',CH)
-    +row('logout','Выйти из аккаунта','Ключ и серверы будут удалены с этого телефона',CH,'danger')+'</div>';
-  var b=S.build||{};
-  h+='<h2>Система и поддержка</h2><div class="card">'
-    +row('support','Поддержка','Ответим в приложении',CH)
-    +row('channel','Наш канал','Новости и статус серверов',CH)
-    +row('terms','Соглашение и конфиденциальность','',CH)
-    +row('vpnset','Системные настройки VPN','Открыть настройки Android → VPN',CH)+'</div>';
-  h+='<div class="ver">'+(b.ice?'Тестовая сборка · ':'')+'версия '+esc(b.version||nat('version')||'—')+(b.code?' ('+esc(b.code)+')':'')+(b.sha?' · коммит '+esc(b.sha):'')+(b.pkg?'<br>'+esc(b.pkg):'')+'</div>';
+  if(S.sub==='smart'){
+    var on=i.mode==='smart';
+    h=subHead('Умное разделение')
+     +'<div class="card"><button type="button" class="set opt" data-r="mode-smart" role="radio" aria-checked="'+on+'"><span class="rd"></span><div class="t"><b>Умное разделение трафика</b><span>'+esc(DIRECT_TXT)+'</span></div></button>'
+     +'<button type="button" class="set opt" data-r="mode-all" role="radio" aria-checked="'+(!on)+'"><span class="rd"></span><div class="t"><b>Весь трафик через VPN</b><span>Ничего не идёт мимо VPN, кроме локальной сети и ваших исключений.</span></div></button></div>'
+     +(i.rules===false&&on?'<p class="hint2"><b>Правила недоступны.</b> Пока их нет, весь трафик идёт через VPN.</p>':'')
+     +'<h2>Порядок правил</h2><div class="card"><div class="hint2"><ol class="rules"><li>Торренты — напрямую</li><li>QUIC (UDP 443) блокируется, браузеры переходят на TCP</li><li>Локальная сеть — напрямую</li><li>Российские сайты и сервисы — напрямую</li><li>Адреса России — напрямую</li><li>Всё остальное — через VPN</li></ol></div></div>'
+     +'<h2>Исключения приложений</h2><div class="card">'+row('apps','Приложения без VPN',i.appsOn?'Отмеченные приложения всегда идут напрямую':'Все приложения идут по правилам выше',i.appsOn?'<span class="val">'+i.count+'</span>'+CH:CH)+'</div>';
+  } else if(S.sub==='sub'){
+    h=subHead('Подписка')+'<div class="card">'
+     +row('acct',me.name||'Срок и устройства',st,CH)
+     +row('copykey','Ключ','Скопировать ключ подписки',CH)
+     +row('key','Другие устройства и QR','Ключ для другого телефона, QR-код',CH)
+     +row('plans','Тарифы и оплата','Продлить или сменить тариф',CH)
+     +row('redeem','Ввести ключ или код','Активация, промокод, новый ключ',CH)
+     +row('refreshSub','Обновить подписку','Заново получить список серверов',CH)
+     +row('bonus','Бонусы и друзья','Промокоды, приглашения, подарки',CH)
+     +row('tg','Привязать Telegram','Один аккаунт в боте и в приложении',CH)
+     +row('tv','Подключить телевизор','Ввести код с экрана Siberia Connect TV',CH)
+     +row('logout','Выйти из аккаунта','Ключ и серверы будут удалены с этого телефона',CH,'danger')+'</div>';
+  } else if(S.sub==='support'){
+    h=subHead('Поддержка')+'<div class="card">'
+     +row('support','Написать в поддержку','Ответим в приложении',CH)
+     +row('channel','Наш канал','Новости и статус серверов',CH)
+     +row('terms','Соглашение и конфиденциальность','',CH)+'</div>';
+  } else if(S.sub==='adv'){
+    var b=S.build||{};
+    h=subHead('Дополнительно')+'<div class="card">'
+     +row('boot','Автозапуск','Включать VPN после перезагрузки телефона',sw(!!nat('autoStart')))
+     +row('always','Постоянный VPN Android','Системная настройка: держать VPN всегда включённым',CH)
+     +row('adv','DNS, сетевой стек, журналы','Расширенные параметры подключения и журнал для поддержки',CH)
+     +row('vpnset','Системные настройки VPN','Открыть настройки Android → VPN',CH)+'</div>'
+     +'<div class="ver">'+(b.ice?'Тестовая сборка · ':'')+'версия '+esc(b.version||nat('version')||'—')+(b.code?' ('+esc(b.code)+')':'')+(b.sha?' · коммит '+esc(b.sha):'')+(b.pkg?'<br>'+esc(b.pkg):'')+'</div>';
+  } else {
+    var smart=i.mode==='smart'&&i.rules!==false;
+    h='<h1>Настройки</h1>'
+     +'<div class="card"><div class="splitrow"><button type="button" class="set" data-r="smart"><div class="t"><b>Умное разделение трафика</b><span><em class="state'+(smart?' on':'')+'">'+splitState(i)+'</em>'+(i.appsOn&&i.count?' · исключений: '+i.count:'')+'</span></div></button>'
+     +'<button type="button" class="swb" data-r="smartToggle" role="switch" aria-checked="'+smart+'" aria-label="Умное разделение трафика"><span class="sw" aria-hidden="true" data-on="'+smart+'"></span></button></div>'
+     +'<p class="explain">'+esc(splitExplain(i))+'</p></div>'
+     +'<div class="card" style="margin-top:.75rem">'
+     +row('sub','Подписка',st,CH)
+     +row('supportPage','Поддержка','Написать нам, канал, соглашение',CH)
+     +row('advPage','Дополнительно','Автозапуск, постоянный VPN, DNS, журналы',CH)+'</div>';
+  }
   el.innerHTML=h;
+  el.querySelectorAll('.sw[data-on]').forEach(function(x){ x.setAttribute('aria-checked',x.getAttribute('data-on')); });
 }
 function ask(){
   var tok=''; try{ tok=localStorage.getItem('sc_tok')||''; }catch(e){}
@@ -455,15 +492,28 @@ function ask(){
     .then(function(r){return r.json();}).then(function(d){ if(d&&d.ok!==false){ S.me={name:d.name,status:d.status,until:d.until,channel:d.channel}; if(S.tab==='settings') renderSettings(); } })
     .catch(function(){}).then(function(){clearTimeout(tm);});
 }
+function setSplit(mode){
+  if(N&&typeof N.setSplitMode==='function') nat('setSplitMode',mode); else nat('setRuDirect',mode==='smart');
+  var on=S.state==='on';
+  toast(mode==='smart'?'Умное разделение включено'+(on?' — VPN перезапустится':''):'Весь трафик идёт через VPN'+(on?' — VPN перезапустится':''));
+  setTimeout(renderSettings,150);
+}
 function onRow(k){
   switch(k){
-    case 'auto': nat('setAutoMode',!(nat('autoMode')!==false)); setTimeout(function(){loadServers();renderAll();},250); break;
+    case 'back': S.sub=''; renderSettings(); window.scrollTo(0,0); break;
+    case 'smart': S.sub='smart'; renderSettings(); window.scrollTo(0,0); break;
+    case 'sub': S.sub='sub'; renderSettings(); window.scrollTo(0,0); break;
+    case 'supportPage': S.sub='support'; renderSettings(); window.scrollTo(0,0); break;
+    case 'advPage': S.sub='adv'; renderSettings(); window.scrollTo(0,0); break;
+    case 'smartToggle': setSplit(splitInfo().mode==='smart'?'all':'smart'); break;
+    case 'mode-smart': setSplit('smart'); break;
+    case 'mode-all': setSplit('all'); break;
     case 'boot': nat('setAutoStart',!nat('autoStart')); renderSettings(); break;
     case 'always': case 'vpnset': nat('vpnSettings'); break;
     case 'adv': nat('advanced'); break;
-    case 'ru': nat('setRuDirect',!(nat('ruDirect')!==false)); setTimeout(renderSettings,150); toast(S.state==='on'?'Применяю — VPN перезапустится':'Сохранено'); break;
     case 'apps': openApps(); break;
     case 'acct': nat('openCabinet','stats'); break;
+    case 'copykey': var u=nat('subUrl'); if(u){ nat('copyText',u); toast('Ключ скопирован'); } else { toast('Ключа нет — введите ключ или код'); } break;
     case 'plans': nat('openCabinet','plans'); break;
     case 'redeem': nat('redeemDialog'); break;
     case 'refreshSub': refreshSub(); break;
@@ -505,12 +555,12 @@ function renderApps(){
     var rows=a.list.filter(function(x){return !q||x.name.toLowerCase().indexOf(q)>=0;}).map(function(x){
       return '<button type="button" class="row'+(x.sel?' sel':'')+'" data-app="'+esc(x.pkg)+'">'+(x.icon?'<img class="ai" alt="" src="'+esc(x.icon)+'">':'<img class="ai" alt="">')+'<div class="t"><b>'+esc(x.name)+'</b><span>'+(x.rec?'рекомендуем без VPN':x.vpn?'лучше через VPN':'')+'</span></div><span class="cb"></span></button>';
     }).join('');
-    body='<div class="card" style="margin-bottom:.6rem"><button type="button" class="set" data-a="appsMaster"><div class="t"><b>Приложения без VPN</b><span>Отмеченные приложения идут напрямую, остальные — через VPN</span></div>'+sw(a.on)+'</button></div>'
+    body='<div class="card" style="margin-bottom:.6rem"><button type="button" class="set" data-a="appsMaster"><div class="t"><b>Приложения без VPN</b><span>Отмеченные приложения всегда идут напрямую, остальные — по правилам разделения</span></div>'+sw(a.on)+'</button></div>'
       +'<input class="inp" id="appq" placeholder="Поиск приложений" value="'+esc(a.q)+'" style="margin-bottom:.6rem">'
       +'<div class="card apps">'+(rows||'<p style="padding:.8rem">Ничего не найдено</p>')+'</div>';
   }
   var keep=document.activeElement&&document.activeElement.id==='appq';
-  openSheet('<h3>Приложения без VPN</h3>'+body+'<div class="acts"><button class="btn ghost" type="button" data-a="close">Отмена</button><button class="btn" type="button" data-a="appsSave"'+(a.loading||a.error?' disabled':'')+'>Сохранить</button></div>');
+  openSheet('<h3>Исключения приложений</h3>'+body+'<div class="acts"><button class="btn ghost" type="button" data-a="close">Отмена</button><button class="btn" type="button" data-a="appsSave"'+(a.loading||a.error?' disabled':'')+'>Сохранить</button></div>');
   if(keep){ var i=$('appq'); if(i){ i.focus(); try{i.setSelectionRange(i.value.length,i.value.length);}catch(e){} } }
 }
 
@@ -521,7 +571,7 @@ function go(t){
   document.querySelectorAll('.nav button').forEach(function(b){ var on=b.getAttribute('data-t')===t; b.classList.toggle('on',on); b.setAttribute('aria-current',on?'page':'false'); });
   loadServers(); renderAll(); window.scrollTo(0,0);
   if(t==='servers'&&!S.pingBusy&&Date.now()-S.pingAt>30000&&S.state!=='connecting') doPing();
-  if(t==='settings') ask();
+  if(t==='settings'){ S.sub=''; renderSettings(); ask(); }
 }
 function renderAll(){ renderHome(); if(S.tab==='servers') renderServers(); if(S.tab==='settings') renderSettings(); }
 var tt; function toast(t){ var e=$('toast'); e.textContent=t; e.classList.add('on'); clearTimeout(tt); tt=setTimeout(function(){e.classList.remove('on');},3000); }
@@ -540,6 +590,7 @@ window.scNative=function(ev){
 };
 window.scBack=function(){
   if($('sheet').classList.contains('on')){ closeSheet(); return true; }
+  if(S.tab==='settings'&&S.sub){ S.sub=''; renderSettings(); return true; }
   if(S.tab!=='home'){ go('home'); return true; }
   return false;
 };
@@ -590,41 +641,7 @@ function navH(){ document.documentElement.style.setProperty('--navh',$('nav').of
 window.addEventListener('resize',navH);
 if(window.ResizeObserver) new ResizeObserver(navH).observe($('nav'));
 
-/* ───────── снег: мелкие частицы разной глубины, только в области кнопки; не крутится, пока экран скрыт ───────── */
-var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-var snow={ps:[],raf:0,last:0,offAt:0,ctx:null,w:0,h:0};
-function snowInit(){
-  var cv=$('snow'), dpr=Math.min(2,window.devicePixelRatio||1), w=cv.clientWidth, h=cv.clientHeight;
-  if(!w||!h) return false;
-  cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); snow.ctx=cv.getContext('2d'); snow.ctx.setTransform(dpr,0,0,dpr,0,0); snow.w=w; snow.h=h;
-  if(!snow.ps.length) for(var i=0;i<18;i++){ var z=0.3+0.7*Math.random(); snow.ps.push({x:Math.random(),y:Math.random(),z:z,ph:Math.random()*6.28}); }
-  return true;
-}
-function snowTick(ts){
-  snow.raf=0;
-  var want=S.state==='on'&&!document.hidden&&!reduce;
-  if(!want && ts-snow.offAt>1500){ if(snow.ctx) snow.ctx.clearRect(0,0,snow.w,snow.h); return; }
-  if(document.hidden) return;
-  if(!snow.w && !snowInit()){ snow.raf=requestAnimationFrame(snowTick); return; }
-  var dt=snow.last?Math.min(0.1,(ts-snow.last)/1000):0.016; snow.last=ts;
-  var c=snow.ctx, k=snow.w/288; c.clearRect(0,0,snow.w,snow.h);
-  for(var i=0;i<snow.ps.length;i++){
-    var p=snow.ps[i];
-    p.y+=(6+p.z*13)*k*dt/snow.h; p.x+=Math.sin(ts/2600+p.ph)*(2+p.z*3)*k*dt/snow.w;
-    if(p.y>1.02){ p.y=-0.02; p.x=Math.random(); } if(p.x<0)p.x+=1; if(p.x>1)p.x-=1;
-    c.globalAlpha=0.3+0.55*p.z; c.fillStyle='#EAF6FF';
-    c.beginPath(); c.arc(p.x*snow.w,p.y*snow.h,(0.7+p.z*1.7)*k,0,6.283); c.fill();
-  }
-  c.globalAlpha=1; snow.raf=requestAnimationFrame(snowTick);
-}
-function snowSync(){
-  if(S.state!=='on') snow.offAt=performance.now();
-  if(!snow.raf && S.state==='on' && !document.hidden && !reduce){ snow.last=0; snow.raf=requestAnimationFrame(snowTick); }
-  else if(!snow.raf && S.state!=='on' && snow.ctx && performance.now()-snow.offAt<1500 && !document.hidden){ snow.raf=requestAnimationFrame(snowTick); }
-}
-document.addEventListener('visibilitychange',function(){ if(document.hidden){ if(snow.raf){ cancelAnimationFrame(snow.raf); snow.raf=0; } } else snowSync(); });
-
-window.__ice={level:level,bars:bars,S:S,snow:snow,sync:snowSync,reduce:reduce};   // для проверок на стенде
+window.__ice={level:level,bars:bars,S:S};   // для проверок на стенде
 
 (function init(){
   navH();

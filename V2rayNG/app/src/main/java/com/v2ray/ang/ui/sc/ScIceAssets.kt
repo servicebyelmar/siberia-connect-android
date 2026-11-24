@@ -45,11 +45,11 @@ internal class ScIceAssets(private val context: Context) {
                 svg
             )
         }
-        // текстура шерсти для главного экрана (assets/ice/fur.jpg)
-        if (p == PATH + "fur.jpg") {
-            val img = runCatching { context.assets.open("ice/fur.jpg") }.getOrNull() ?: return null
+        // сцена «Сибирский хребет» главного экрана: два слоя одной геометрии (assets/ice/ridge-off.webp, ridge-on.webp)
+        if (p == PATH + "ridge-off.webp" || p == PATH + "ridge-on.webp") {
+            val img = runCatching { context.assets.open("ice/" + p.removePrefix(PATH)) }.getOrNull() ?: return null
             return WebResourceResponse(
-                "image/jpeg", null, 200, "OK",
+                "image/webp", null, 200, "OK",
                 mapOf("Cache-Control" to "max-age=86400", "X-Content-Type-Options" to "nosniff"),
                 img
             )
