@@ -19,9 +19,8 @@ html,body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-a
 button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;text-align:inherit;cursor:pointer}
 button:focus-visible,input:focus-visible{outline:2px solid var(--ice);outline-offset:2px}
 .app{max-width:560px;margin:0 auto;min-height:100vh;padding:.75rem 1rem calc(5.5rem + env(safe-area-inset-bottom,0px));position:relative}
-.app::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;
-  background:radial-gradient(70% 38% at 50% 0%,rgba(79,195,247,.13),transparent 70%),radial-gradient(60% 30% at 50% 100%,rgba(79,195,247,.06),transparent 70%)}
 .screen{display:none}.screen.on{display:block;animation:fade .22s ease}
+@keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fade{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
 h1{font-size:1.35rem;margin:.25rem 0 .75rem;font-weight:700;letter-spacing:.2px}
 h2{font-size:.78rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--mut);margin:1.4rem .25rem .5rem}
@@ -29,38 +28,20 @@ h2{font-size:.78rem;font-weight:700;letter-spacing:.09em;text-transform:uppercas
 
 /* ───── главная ───── */
 .brand{display:flex;align-items:center;gap:.5rem;color:var(--mut);font-size:.85rem;font-weight:600;letter-spacing:.04em;justify-content:center;margin-bottom:.25rem}
-.brand i{display:inline-block;width:.45rem;height:.45rem;border-radius:50%;background:var(--ice2);box-shadow:0 0 8px var(--ice2)}
-.hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:.5rem}
-.ringwrap{position:relative;width:min(72vw,17.5rem);aspect-ratio:1;display:grid;place-items:center}
-.ring{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.ring .base{fill:none;stroke:var(--iceDim);stroke-width:1.5;transition:stroke .5s}
-.ring .arc{fill:none;stroke:url(#ig);stroke-width:2.2;stroke-linecap:round;stroke-dasharray:0 653;opacity:0;transition:stroke-dasharray .7s ease,opacity .5s;transform-origin:110px 110px;filter:drop-shadow(0 0 6px rgba(143,219,255,.55))}
-.ringwrap[data-s=connecting] .arc{opacity:1;stroke-dasharray:190 463;animation:spin 2.6s linear infinite}
-.ringwrap[data-s=on] .arc{opacity:1;stroke-dasharray:653 0;animation:breathe 5s ease-in-out infinite}
-.ringwrap[data-s=error] .base{stroke:rgba(240,195,106,.55)}
-@keyframes spin{to{transform:rotate(360deg)}}
-@keyframes breathe{0%,100%{opacity:.75;filter:drop-shadow(0 0 4px rgba(143,219,255,.35))}50%{opacity:1;filter:drop-shadow(0 0 9px rgba(143,219,255,.7))}}
-.orb{position:relative;width:76%;aspect-ratio:1;border-radius:50%;overflow:hidden;background:#06121f;border:1px solid rgba(143,219,255,.25);
-  box-shadow:0 0 0 .35rem var(--bg),0 10px 40px rgba(0,0,0,.55);transition:box-shadow .5s,transform .15s}
-.orb:active{transform:scale(.97)}
-.orb img{width:100%;height:100%;object-fit:cover;transform:scale(1.2);display:block;transition:filter .6s;filter:saturate(.3) brightness(.55)}
-.ringwrap[data-s=connecting] .orb img{filter:saturate(.7) brightness(.8)}
-.ringwrap[data-s=on] .orb img{filter:saturate(1.05) brightness(1.05)}
-.ringwrap[data-s=on] .orb{box-shadow:0 0 0 .35rem var(--bg),0 0 38px rgba(79,195,247,.38)}
-.ringwrap[data-s=error] .orb img{filter:saturate(.35) brightness(.6) sepia(.4)}
-.orb .pw{position:absolute;left:50%;bottom:11%;transform:translateX(-50%);width:2.4rem;height:2.4rem;border-radius:50%;display:grid;place-items:center;
-  background:rgba(8,14,20,.78);border:1px solid rgba(143,219,255,.35);backdrop-filter:blur(2px)}
-.orb .pw svg{width:1.2rem;height:1.2rem}
-.st{font-size:1.6rem;font-weight:800;margin-top:1.15rem;letter-spacing:.2px}
+.hero{display:flex;flex-direction:column;align-items:stretch;padding-top:.5rem}
+.stat{text-align:center;padding:1.25rem .5rem .5rem;min-height:7.5rem}
+.cta{display:block;width:100%;height:3.5rem;border-radius:10px;background:var(--ice);color:#04202E;font-size:1.05rem;font-weight:700;text-align:center;line-height:1.2;padding:0 1rem;border:0}
+.cta:active{background:#7ccdf2}
+.st{font-size:1.5rem;font-weight:800;letter-spacing:.2px}
 .st.on{color:var(--ice)}.st.error{color:var(--warn)}
 .tm{font-variant-numeric:tabular-nums;font-size:1.15rem;color:var(--tx);margin-top:.2rem;min-height:1.6rem;letter-spacing:.06em}
-.hint{color:var(--mut);font-size:.9rem;margin-top:.15rem;max-width:22rem;min-height:1.25rem}
+.hint{color:var(--mut);font-size:.9rem;margin:.15rem auto 0;max-width:22rem;min-height:1.25rem}
 .err{margin-top:.75rem;padding:.75rem .9rem;border-radius:var(--r);background:rgba(240,195,106,.09);border:1px solid rgba(240,195,106,.28);
   color:#F6DDA6;font-size:.92rem;text-align:left;width:100%}
 .err .code{display:block;margin-top:.35rem;color:var(--mut);font-size:.8rem}
 .err .acts{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.65rem}
 .btn{display:inline-flex;align-items:center;justify-content:center;text-align:center;gap:.4rem;min-height:2.75rem;padding:.55rem 1.1rem;border-radius:999px;
-  font-weight:700;font-size:.95rem;background:linear-gradient(180deg,#9AE0FF,#58C8F8);color:#05202F;line-height:1.2}
+  font-weight:700;font-size:.95rem;background:var(--ice);color:#05202F;line-height:1.2}
 .btn.ghost{background:var(--panel2);color:var(--tx);border:1px solid var(--line);font-weight:600}
 .btn.small{min-height:2.4rem;padding:.4rem .95rem;font-size:.88rem}
 .btn[disabled]{opacity:.5}
@@ -140,7 +121,6 @@ h2{font-size:.78rem;font-weight:700;letter-spacing:.09em;text-transform:uppercas
 .nav button svg{width:1.45rem;height:1.45rem}
 .nav button span{font-size:.76rem;font-weight:600;line-height:1.15;overflow-wrap:break-word;word-break:normal;hyphens:manual;max-width:100%}
 .nav button.on{color:var(--ice)}
-.nav button.on svg{filter:drop-shadow(0 0 6px rgba(143,219,255,.6))}
 
 /* ───── шторка, тост ───── */
 .shade{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:none}
@@ -188,7 +168,6 @@ h2{font-size:.78rem;font-weight:700;letter-spacing:.09em;text-transform:uppercas
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-5.5h-5V21H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
     <symbol id="i-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5S14.600 18.100 12 20.500C9.400 18.100 8.100 15.300 8.100 12S9.400 5.900 12 3.500z"/></g></symbol>
     <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.800 12H21M5.600 5.600l1.600 1.600M16.800 16.800l1.600 1.600M5.600 18.400l1.600-1.600M16.800 7.200l1.600-1.600"/></g></symbol>
-    <symbol id="i-power" viewBox="0 0 24 24"><g fill="none" stroke="#BFEAFF" stroke-width="2" stroke-linecap="round"><path d="M12 3.500v8"/><path d="M7.400 6.700a7.500 7.500 0 1 0 9.200 0"/></g></symbol>
     <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2.5 5 13.500h5.500L9.500 21.500 19 9.500h-5.800z" fill="currentColor"/></symbol>
     <symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.500-5.800"/><path d="M20 4v4.500h-4.500"/></g></symbol>
@@ -198,26 +177,18 @@ h2{font-size:.78rem;font-weight:700;letter-spacing:.09em;text-transform:uppercas
 <div class="app" id="app">
 
   <section class="screen on" id="s-home" aria-label="Главная">
-    <div class="brand"><i></i>Siberia Connect</div>
+    <div class="brand">Siberia Connect</div>
     <div class="hero">
-      <div class="ringwrap" id="ringwrap" data-s="off">
-        <svg class="ring" viewBox="0 0 220 220" aria-hidden="true">
-          <defs><linearGradient id="ig" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D5F4FF"/><stop offset="1" stop-color="#3FB8F5"/></linearGradient></defs>
-          <circle class="base" cx="110" cy="110" r="104"/>
-          <circle class="arc" id="arc" cx="110" cy="110" r="104"/>
-        </svg>
-        <button class="orb" id="orb" type="button" aria-label="Подключить">
-          <img id="wolf" alt="" src="" draggable="false">
-          <span class="pw"><svg><use href="#i-power"/></svg></span>
-        </button>
+      <div class="stat">
+        <div class="st" id="stTitle" role="status" aria-live="polite">Отключено</div>
+        <div class="tm" id="timer"></div>
+        <div class="hint" id="stHint"></div>
       </div>
-      <div class="st" id="stTitle" role="status" aria-live="polite">Отключено</div>
-      <div class="tm" id="timer"></div>
-      <div class="hint" id="stHint"></div>
-      <div class="err" id="errBox" hidden></div>
+      <button class="cta" id="cta" type="button">Подключиться</button>
     </div>
-    <div id="notice"></div>
     <button class="srv" id="srvRow" type="button"></button>
+    <div class="err" id="errBox" hidden></div>
+    <div id="notice"></div>
   </section>
 
   <section class="screen" id="s-servers" aria-label="Серверы"></section>
@@ -247,7 +218,6 @@ function plural(n,a,b,c){ var m=n%10,h=n%100; return (m===1&&h!==11)?a:(m>=2&&m<
 /* ───────── состояние ───────── */
 var S = { state:'off', err:'', since:0, off:0, servers:[], tab:'home', open:{}, lockUntil:0, switching:0, connAt:0,
           acct:'', incident:'', me:null, pingBusy:false, pingAt:0, build:null };
-var BASE = (nat('assetBase') || 'https://sc-assets.local/');
 
 /* ───────── узлы: флаг → страна, название ───────── */
 var CC = {NL:'Нидерланды',FI:'Финляндия',RU:'Россия',KZ:'Казахстан',DE:'Германия',SE:'Швеция',LV:'Латвия',AT:'Австрия',US:'США',LT:'Литва',
@@ -314,15 +284,14 @@ function syncState(){
 
 /* ───────── главная ───────── */
 function renderHome(){
-  var s=S.state, rw=$('ringwrap'); rw.setAttribute('data-s', s);
+  var s=S.state;
   var t=$('stTitle'); t.className='st '+(s==='on'?'on':s==='error'?'error':'');
   t.textContent = s==='on'?'Подключено':s==='connecting'?(S.switching?'Переключаю узел…':'Подключение…'):s==='error'?'Ошибка подключения':'Отключено';
-  var orb=$('orb');
-  orb.setAttribute('aria-label', s==='on'?'Отключить VPN':s==='connecting'?'Отменить подключение':'Подключить VPN');
+  var cta=$('cta'); cta.textContent = s==='on'?'Отключиться':s==='connecting'?'Отменить':s==='error'?'Повторить':'Подключиться';
   var cur = S.act || S.sel;
   var hint='';
-  if(s==='off') hint='Нажмите на волка, чтобы подключиться';
-  else if(s==='connecting') hint = (S.switching?'Подождите пару секунд':'Проверяем ключ и выбираем узел')+' · нажмите ещё раз, чтобы отменить';
+  if(s==='off') hint='Нажмите «Подключиться»';
+  else if(s==='connecting') hint = (S.switching?'Подождите пару секунд':'Проверяем ключ и выбираем узел')+'';
   else if(s==='on') hint = cur ? 'Трафик идёт через '+cur.country+(cur.title?' · '+cur.title:'') : 'Защищённое соединение установлено';
   else hint='';
   $('stHint').textContent=hint;
@@ -331,7 +300,7 @@ function renderHome(){
   if(s==='error'){
     eb.hidden=false;
     eb.innerHTML = esc(S.err)+(S.incident?'<span class="code">Код обращения: '+esc(S.incident)+'</span>':'')
-      +'<div class="acts"><button class="btn small" type="button" data-a="retry">Повторить</button><button class="btn small ghost" type="button" data-a="servers">Сменить сервер</button></div>';
+      +'<div class="acts"><button class="btn small ghost" type="button" data-a="servers">Сменить сервер</button></div>';
   } else eb.hidden=true;
 
   // карточка сервера
@@ -410,7 +379,7 @@ function renderServers(){
   }
   h+='<div class="cur"><span class="flag" aria-hidden="true" style="font-size:1.8rem">'+(S.autoOn&&!cur?'<svg><use href="#i-bolt"/></svg>':(cur?(cur.flag||'🌐'):'🌐'))+'</span><div><small>'+(on?'Подключено через':'Выбрано')+'</small><b>'
     +esc(S.autoOn&&!(on&&S.act)?'Автовыбор':(cur?cur.country+(cur.title?' · '+cur.title:''):'—'))+'</b>'
-    +(S.autoOn&&on&&S.act?'<span>Автовыбор · лучший из '+S.nodes.length+'</span>':(on?'':'<span>Нажмите на кнопку на главной, чтобы подключиться</span>'))+'</div></div>';
+    +(S.autoOn&&on&&S.act?'<span>Автовыбор · лучший из '+S.nodes.length+'</span>':(on?'':'<span>Нажмите «Подключиться» на главной</span>'))+'</div></div>';
   h+='<div class="list" role="radiogroup" aria-label="Выбор сервера">';
   if(S.auto){
     h+='<button type="button" class="item'+(S.autoOn?' sel':'')+'" data-pick="auto" role="radio" aria-checked="'+(S.autoOn?'true':'false')+'">'+'<span class="flag" aria-hidden="true"><svg><use href="#i-bolt"/></svg></span>'+'<div class="t"><b>Автовыбор</b><span>Самый быстрый узел из '+S.nodes.length+'</span></div>'+(S.autoOn?'<span class="badge soft">ВКЛЮЧЁН</span>':'')+'<span class="radio" aria-hidden="true"></span></button>';
@@ -440,7 +409,7 @@ function pick(guid){
   loadServers();
   if(was==='on'||was==='connecting'){ S.switching=Date.now()+12000; S.state='connecting'; S.connAt=Date.now(); }
   var nm = guid==='auto' ? 'Автовыбор' : ((S.nodes.filter(function(x){return x.guid===guid;})[0]||{}).country||'Сервер');
-  toast(was==='on'||was==='connecting' ? 'Переключаю на: '+nm : (nm+' выбран. Нажмите на волка, чтобы подключиться'));
+  toast(was==='on'||was==='connecting' ? 'Переключаю на: '+nm : (nm+' выбран. Нажмите «Подключиться»'));
   go('home');
 }
 function doPing(){
@@ -528,7 +497,7 @@ function refreshSub(){
 function openSheet(html){ $('sheet').innerHTML=html; $('sheet').classList.add('on'); $('shade').classList.add('on'); }
 function closeSheet(){ $('sheet').classList.remove('on'); $('shade').classList.remove('on'); appsState=null; }
 function openLogout(){
-  openSheet('<h3>Выйти из аккаунта?</h3><p>VPN отключится, ключ и список серверов удалятся с этого телефона. Войти снова можно по ключу или коду.</p><div class="acts"><button class="btn ghost" type="button" data-a="close">Отмена</button><button class="btn" type="button" data-a="logoutGo" style="background:linear-gradient(180deg,#FFB0B0,#FF7C7C)">Выйти</button></div>');
+  openSheet('<h3>Выйти из аккаунта?</h3><p>VPN отключится, ключ и список серверов удалятся с этого телефона. Войти снова можно по ключу или коду.</p><div class="acts"><button class="btn ghost" type="button" data-a="close">Отмена</button><button class="btn" type="button" data-a="logoutGo" style="background:#FF9C9C">Выйти</button></div>');
 }
 function openTv(){
   openSheet('<h3>Подключить телевизор</h3><p>Установите Siberia Connect TV на телевизор, откройте его — на экране появится код. Введите код здесь.</p><input class="inp" id="tvcode" inputmode="numeric" autocomplete="off" placeholder="Код с экрана ТВ" maxlength="12"><div class="acts"><button class="btn ghost" type="button" data-a="close">Отмена</button><button class="btn" type="button" data-a="tvGo">Подключить</button></div>');
@@ -617,7 +586,7 @@ document.addEventListener('click',function(e){
 });
 document.addEventListener('input',function(e){ if(e.target.id==='appq'&&appsState){ appsState.q=e.target.value; renderApps(); } });
 $('shade').addEventListener('click',closeSheet);
-$('orb').addEventListener('click',onPower);
+$('cta').addEventListener('click',onPower);
 $('srvRow').addEventListener('click',function(){ go('servers'); });
 
 /* возврат из фона: статус и таймер берутся из фактического состояния VPN, а не из памяти страницы */
@@ -639,7 +608,6 @@ setInterval(function(){
 
 /* ───────── старт ───────── */
 (function init(){
-  var w=$('wolf'); w.onerror=function(){ w.onerror=null; w.src=BASE+'wolf_first.jpg'; }; w.src=BASE+'wolf-idle.webp';
   S.build=natJSON('buildInfo',null);
   S.acct=nat('account')||'';
   loadServers();
