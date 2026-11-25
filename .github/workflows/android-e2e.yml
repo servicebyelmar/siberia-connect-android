@@ -1,6 +1,9 @@
 name: Android update E2E
 
 on:
+  push:
+    branches: [release/android-1.4.0-ridge]
+    paths: ['.github/workflows/android-e2e.yml']
   workflow_dispatch:
     inputs:
       candidate_run:
@@ -39,7 +42,7 @@ jobs:
           want=$(python3 -c "import json;print(json.load(open('version.json'))['sha256'])")
           have=$(sha256sum public.apk | cut -d' ' -f1)
           echo "public sha256 $have"; [ "$want" = "$have" ] || { echo "SHA-256 публичной не совпал"; exit 1; }
-          gh run download ${{ inputs.candidate_run }} --repo "$GITHUB_REPOSITORY" --name universal-apk --dir cand
+          gh run download ${{ inputs.candidate_run || '45483139366' }} --repo "$GITHUB_REPOSITORY" --name universal-apk --dir cand
           ls -la cand
           cp "$(ls cand/*.apk | head -1)" new.apk
           sha=$(sha256sum new.apk | cut -d' ' -f1); echo "candidate sha256 $sha"
@@ -52,7 +55,7 @@ jobs:
           PUBLIC_APK: ${{ github.workspace }}/apks/public.apk
           NEW_APK: ${{ github.workspace }}/apks/new.apk
           OUT: ${{ github.workspace }}/e2e_out
-          E2E_NOACCOUNT: ${{ inputs.noaccount }}
+          E2E_NOACCOUNT: ${{ inputs.noaccount || '1' }}
         with:
           api-level: 34
           target: google_apis
