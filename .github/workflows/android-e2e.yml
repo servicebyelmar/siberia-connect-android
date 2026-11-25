@@ -1,0 +1,70 @@
+name: Android update E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run:
+        description: "Run id сборки Build APK с кандидатом (artifact universal-apk)"
+        required: true
+        default: "45483139366"
+      noaccount:
+        description: "1 = отладочный прогон без аккаунта (VPN-сценарии пропускаются)"
+        required: true
+        default: "1"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+
+      - name: Fetch public 1.3.1 and candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p apks && cd apks
+          curl -fsS https://sibir-cloud-api.site/dl/version.json -o version.json
+          python3 -c "import json;d=json.load(open('version.json'));print('public',d['version'],d['versionCode'])"
+          curl -fsS https://sibir-cloud-api.site/dl/SiberiaConnect.apk -o public.apk
+          want=$(python3 -c "import json;print(json.load(open('version.json'))['sha256'])")
+          have=$(sha256sum public.apk | cut -d' ' -f1)
+          echo "public sha256 $have"; [ "$want" = "$have" ] || { echo "SHA-256 публичной не совпал"; exit 1; }
+          gh run download ${{ inputs.candidate_run }} --repo "$GITHUB_REPOSITORY" --name universal-apk --dir cand
+          ls -la cand
+          cp "$(ls cand/*.apk | head -1)" new.apk
+          sha=$(sha256sum new.apk | cut -d' ' -f1); echo "candidate sha256 $sha"
+          case "$sha" in f93bb6d6*cd4b) echo "кандидат совпал с записанным";; *) echo "SHA-256 кандидата не совпал с записанным"; exit 1;; esac
+          echo "$sha" > new.sha256
+
+      - name: Emulator and scenarios
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          PUBLIC_APK: ${{ github.workspace }}/apks/public.apk
+          NEW_APK: ${{ github.workspace }}/apks/new.apk
+          OUT: ${{ github.workspace }}/e2e_out
+          E2E_NOACCOUNT: ${{ inputs.noaccount }}
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: python3 e2e/android_update_e2e.py
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-out
+          path: e2e_out
+          if-no-files-found: ignore
