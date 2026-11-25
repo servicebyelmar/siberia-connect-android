@@ -154,6 +154,10 @@ def main():
     sh("svc power stayon true"); sh("input keyevent 82")
     log("android %s, sdk %s" % (sh("getprop ro.build.version.release").strip(), sh("getprop ro.build.version.sdk").strip()))
     log("[net] dns: %r | ping: %r" % (sh("getprop net.dns1").strip(), sh("ping -c1 -W3 8.8.8.8 | tail -2").strip()[:200]))
+    for _ in range(40):
+        if "1 received" in sh("ping -c1 -W3 8.8.8.8"): break
+        time.sleep(3)
+    sh("am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS")
     base = egress()
     rec("S0", "эмулятор: сеть и базовый внешний адрес (без VPN)", bool(base["nonru"]), "nonru=%s ru=%s" % (base["nonru"], base["ru"]))
     # ── 1. публичная 1.3.1
