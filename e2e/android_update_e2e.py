@@ -98,6 +98,7 @@ def http_get(host, path):
     out = sh(cmd, timeout=40)
     body = out.split("\r\n\r\n", 1)[-1] if "\r\n\r\n" in out else out.split("\n\n", 1)[-1]
     m = re.search(r"(\d{1,3}(?:\.\d{1,3}){3})", body)
+    if not m: log("  [net] %s пусто: %r" % (host, out[:200]))
     return m.group(1) if m else None
 
 
@@ -152,6 +153,7 @@ def main():
         sh("settings put global %s 0" % s)
     sh("svc power stayon true"); sh("input keyevent 82")
     log("android %s, sdk %s" % (sh("getprop ro.build.version.release").strip(), sh("getprop ro.build.version.sdk").strip()))
+    log("[net] dns: %r | ping: %r" % (sh("getprop net.dns1").strip(), sh("ping -c1 -W3 8.8.8.8 | tail -2").strip()[:200]))
     base = egress()
     rec("S0", "эмулятор: сеть и базовый внешний адрес (без VPN)", bool(base["nonru"]), "nonru=%s ru=%s" % (base["nonru"], base["ru"]))
     # ── 1. публичная 1.3.1

@@ -3,7 +3,7 @@ name: Android update E2E
 on:
   push:
     branches: [release/android-1.4.0-ridge]
-    paths: ['.github/workflows/android-e2e.yml']
+    paths: ['.github/workflows/android-e2e.yml', 'e2e/**']
   workflow_dispatch:
     inputs:
       candidate_run:
