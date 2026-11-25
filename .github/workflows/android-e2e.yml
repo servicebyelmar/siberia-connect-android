@@ -43,8 +43,8 @@ jobs:
           have=$(sha256sum public.apk | cut -d' ' -f1)
           echo "public sha256 $have"; [ "$want" = "$have" ] || { echo "SHA-256 публичной не совпал"; exit 1; }
           gh run download ${{ inputs.candidate_run || '45483139366' }} --repo "$GITHUB_REPOSITORY" --name universal-apk --dir cand
-          ls -la cand
-          cp "$(ls cand/*.apk | head -1)" new.apk
+          find cand -type f
+          cp "$(find cand -name "*.apk" | head -1)" new.apk
           sha=$(sha256sum new.apk | cut -d' ' -f1); echo "candidate sha256 $sha"
           case "$sha" in f93bb6d6*cd4b) echo "кандидат совпал с записанным";; *) echo "SHA-256 кандидата не совпал с записанным"; exit 1;; esac
           echo "$sha" > new.sha256
