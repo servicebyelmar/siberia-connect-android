@@ -249,7 +249,7 @@ function parseNode(x){
   return { guid:x.guid, cc:cc, country:country||'Другие узлы', title:rest2[0]||'', note:rest2.slice(1).join(' · '),
            ping:x.ping||0, selected:!!x.selected, active:!!x.active, available:x.available!==false };
 }
-function flagImg(cc){ return '<img class="fl" alt="" width="24" height="16" src="flags/'+(cc||'globe')+'.svg">'; }
+function flagImg(cc){ return '<img class="fl" alt="" width="24" height="16" src="flags/'+String(cc||'globe').toLowerCase()+'.svg">'; }
 
 /* ───────── индикатор задержки ───────── */
 function level(ms){ return ms<100?{n:4,c:'c-teal'}:ms<200?{n:3,c:'c-teal'}:ms<300?{n:2,c:'c-amber'}:{n:1,c:'c-orange'}; }
