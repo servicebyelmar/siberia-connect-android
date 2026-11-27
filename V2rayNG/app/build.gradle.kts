@@ -14,8 +14,8 @@ android {
         applicationId = "com.siberiaconnect.vpn"
         minSdk = 24
         targetSdk = 37
-        versionCode = 795
-        versionName = "1.4.1"
+        versionCode = 796
+        versionName = "1.4.2"
         buildConfigField("boolean", "ICE_UI", "false")
         buildConfigField("boolean", "ICE_TEST", "false")
         buildConfigField("String", "GIT_SHA", "\"${gitSha()}\"")

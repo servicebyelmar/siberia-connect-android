@@ -108,6 +108,17 @@ h2{font-size:1rem;font-weight:700;color:var(--mut);margin:1.5rem 0 .5rem}
 .grp.open>.row .chev{transform:rotate(90deg)}
 .nodes .row{padding-left:calc(var(--gut) + 24px + .75rem)}
 .note{margin:.75rem 0 0;color:var(--mut);font-size:.92rem}
+/* ny_v1: новогодний режим (флаг с сервера /app/season.json) */
+#ny-snow{position:fixed;inset:0;pointer-events:none;z-index:5;overflow:hidden}
+#ny-snow i{position:absolute;top:-12px;border-radius:50%;background:#fff;filter:blur(.4px);animation:nyfall linear infinite}
+@keyframes nyfall{to{transform:translate3d(var(--dx,20px),105vh,0)}}
+#ny-garland{position:fixed;left:0;right:0;top:0;height:12px;pointer-events:none;z-index:6;display:flex;justify-content:space-around}
+#ny-garland b{width:7px;height:9px;border-radius:50%;margin-top:2px;background:currentColor;box-shadow:0 0 8px currentColor;animation:nyblink 2.4s ease-in-out infinite}
+#ny-garland b:nth-child(4n+1){color:#ff5a5a}#ny-garland b:nth-child(4n+2){color:#ffd25a;animation-delay:.6s}#ny-garland b:nth-child(4n+3){color:#5ad7ff;animation-delay:1.2s}#ny-garland b:nth-child(4n){color:#7dff9a;animation-delay:1.8s}
+@keyframes nyblink{50%{opacity:.35}}
+.nychip{display:flex;align-items:center;justify-content:center;gap:.4rem;margin:.6rem auto 0;padding:.5rem 1rem;border-radius:999px;background:rgba(255,90,90,.12);border:1px solid rgba(255,120,120,.45);color:#ffd9d9;font-weight:700;font-size:.92rem}
+.nychip[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){#ny-snow{display:none}#ny-garland b{animation:none}}
 .kbox{margin:.2rem var(--gut) .2rem;padding:.75rem .85rem;border-radius:10px;background:var(--bg);border:1px solid var(--line);font:700 1rem/1.2 ui-monospace,monospace;letter-spacing:.06em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .kpad{padding:.8rem var(--gut)}.kpad .acts{display:flex;gap:.6rem;margin-top:.7rem}.kpad .acts .btn{flex:1}
 .dev{display:flex;align-items:center;gap:.75rem;padding:.75rem var(--gut);border-top:1px solid var(--line)}
@@ -206,6 +217,7 @@ ol.rules li{margin:.2rem 0}
       </div>
       <div class="cap" id="cap">Подключиться</div>
       <div id="notice"></div>
+      <button class="nychip" id="nyChip" type="button" hidden>🎄 <span id="nyChipT">Окошко адвент-календаря ждёт</span></button>
       <button class="srv" id="srvRow" type="button"></button>
     </div>
   </section>
@@ -468,6 +480,7 @@ function renderSettings(){
      +row('key','Ключ и устройства','Скопировать ключ, подключить другое устройство, отключить старое',CH)
      +row('plans','Тарифы и оплата','Продлить или сменить тариф',CH)
      +row('redeem','Ввести ключ или код','Активация, промокод, новый ключ',CH)
+     +(S.ny&&S.ny.advent?row('advent','🎄 Адвент-календарь','Каждый день до 31 декабря — подарок',CH):'')
      +row('bonus','Бонусы и друзья','Промокоды, приглашения, подарки',CH)
      +(S.tgLinked===true?'':row('tg','Привязать Telegram','Один аккаунт в боте и в приложении',CH))
      +row('logout','Выйти из аккаунта','Ключ и серверы будут удалены с этого телефона',CH,'danger')+'</div>';
@@ -572,6 +585,7 @@ function onRow(k){
     case 'refreshSub': refreshSub(); break;
     case 'key': S.sub='key'; KS.show=false; renderSettings(); window.scrollTo(0,0); loadAcc(); break;
     case 'bonus': nat('openCabinet','bonus'); break;
+    case 'advent': nat('openCabinet','advent'); break;
     case 'tg': nat('linkTelegram'); break;
     case 'tv': openTv(); break;
     case 'logout': openLogout(); break;
@@ -688,6 +702,23 @@ document.addEventListener('input',function(e){ if(e.target.id==='appq'&&appsStat
 $('shade').addEventListener('click',closeSheet);
 $('cta').addEventListener('click',onPower);
 $('srvRow').addEventListener('click',function(){ go('servers'); });
+$('nyChip').addEventListener('click',function(){ nat('openCabinet','advent'); });
+
+/* ny_v1: снег, гирлянда и календарь — пока сервер говорит, что праздник */
+function nyStart(st){
+  S.ny=st||null; if(!st||!st.on) return;
+  if(!$('ny-snow')){
+    var s=document.createElement('div'); s.id='ny-snow'; s.setAttribute('aria-hidden','true');
+    for(var i=0;i<22;i++){ var f=document.createElement('i'), z=3+Math.random()*5;
+      f.style.cssText='left:'+Math.random()*100+'%;width:'+z+'px;height:'+z+'px;opacity:'+(.3+Math.random()*.5)+';animation-duration:'+(8+Math.random()*10)+'s;animation-delay:-'+Math.random()*14+'s;--dx:'+(Math.random()*60-30)+'px'; s.appendChild(f); }
+    document.body.appendChild(s);
+    var g=document.createElement('div'); g.id='ny-garland'; g.setAttribute('aria-hidden','true'); for(var j=0;j<16;j++) g.appendChild(document.createElement('b')); document.body.appendChild(g);
+  }
+  if(st.advent) $('nyChip').hidden=false;
+  else if(st.ny_days){ $('nyChipT').textContent='До Нового года '+st.ny_days+' '+plural(st.ny_days,'день','дня','дней'); $('nyChip').hidden=false; $('nyChip').disabled=true; }
+  else { $('nyChipT').textContent='С Новым годом!'; $('nyChip').hidden=false; $('nyChip').disabled=true; }
+}
+function nyCheck(){ try{ fetch('/app/season.json',{cache:'no-store'}).then(function(r){return r.json();}).then(nyStart).catch(function(){}); }catch(e){} }
 
 /* возврат из фона: статус и таймер берутся из фактического состояния VPN-клиента */
 function resume(){ syncState(); loadServers(); renderAll(); setTimeout(syncState,800); }
@@ -720,6 +751,7 @@ window.__ice={level:level,bars:bars,S:S};   // для проверок на ст
   S.state=v||'off'; if(S.state==='on'){ readStats(); confirmLive(); }
   renderAll(); nat('pingAll'); S.pingAt=Date.now(); setTimeout(syncState,900);
   if(S.state==='off') setTimeout(function(){ if(S.state==='off') autoSub('start'); },2500);
+  setTimeout(nyCheck,600);
 })();
 })();
 </script>

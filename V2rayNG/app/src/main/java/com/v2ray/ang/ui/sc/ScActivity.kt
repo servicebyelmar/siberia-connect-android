@@ -490,6 +490,7 @@ class ScActivity : ComponentActivity() {
             "bonus" -> "go('bonus','profile')"
             "profile" -> "go('profile')"
             "support" -> "openPage('support','profile')"
+            "advent" -> "window.scAdvent && scAdvent('ice')"
             else -> ""
         }
         val js = """(function(){
