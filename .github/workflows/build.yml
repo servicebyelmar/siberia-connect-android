@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - master
+      - 'release/android-*'
 
 permissions:
   contents: write
@@ -115,6 +116,17 @@ jobs:
         chmod 755 gradlew
         ./gradlew assemblePlaystoreMobileRelease assemblePlaystoreTvRelease assemblePlaystoreIcetestRelease -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
     
+    - name: Publish release APK (release/android-* branches)
+      if: ${{ success() && startsWith(github.ref, 'refs/heads/release/android-') }}
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        APK=$(ls ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/SiberiaConnect_*_universal.apk | grep -v -e TV_ -e Test_ | head -n1)
+        VER=$(basename "$APK" | sed -E 's/SiberiaConnect_(.+)_universal\.apk/\1/')
+        mkdir -p pub && cp "$APK" pub/ && (cd pub && zip -q universal-apk.zip "$(basename "$APK")")
+        TAG="android-v${VER}-${GITHUB_RUN_NUMBER}"
+        gh release create "$TAG" pub/universal-apk.zip "$APK" --target "$GITHUB_SHA" --prerelease --title "Android ${VER} (сборка ${GITHUB_RUN_NUMBER})" --notes "Автосборка ветки ${GITHUB_REF_NAME}, коммит ${GITHUB_SHA}"
+
     - name: Upload arm64-v8a APK
       uses: actions/upload-artifact@v7
       if: ${{  success() }}

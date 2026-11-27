@@ -108,6 +108,14 @@ h2{font-size:1rem;font-weight:700;color:var(--mut);margin:1.5rem 0 .5rem}
 .grp.open>.row .chev{transform:rotate(90deg)}
 .nodes .row{padding-left:calc(var(--gut) + 24px + .75rem)}
 .note{margin:.75rem 0 0;color:var(--mut);font-size:.92rem}
+.kbox{margin:.2rem var(--gut) .2rem;padding:.75rem .85rem;border-radius:10px;background:var(--bg);border:1px solid var(--line);font:700 1rem/1.2 ui-monospace,monospace;letter-spacing:.06em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpad{padding:.8rem var(--gut)}.kpad .acts{display:flex;gap:.6rem;margin-top:.7rem}.kpad .acts .btn{flex:1}
+.dev{display:flex;align-items:center;gap:.75rem;padding:.75rem var(--gut);border-top:1px solid var(--line)}
+.dev .t{flex:1;min-width:0}.dev .t b{display:block;font-weight:600}.dev .t span{display:block;color:#B4C0CB;font-size:.88rem;margin-top:.1rem}
+.dev em{font-style:normal;font-size:.72rem;font-weight:700;color:var(--ice);border:1px solid rgba(143,219,255,.5);border-radius:999px;padding:.1rem .45rem;margin-left:.35rem}
+.dev .del{flex:none;min-height:2.3rem;padding:.3rem .8rem;border-radius:9px;background:var(--panel2);border:1px solid var(--line);font-weight:600;font-size:.85rem;color:#FFB4A8}
+.dev .del[data-sure]{background:#4a1d1a;color:#fff}
+.pinging{font-size:.85rem;color:var(--mut)}
 
 /* ───── настройки ───── */
 .set{display:flex;align-items:center;gap:.75rem;width:100%;padding:.8rem var(--gut);min-height:3.5rem;border-top:1px solid var(--line)}
@@ -289,6 +297,7 @@ function setState(st, err){
   if(st==='connecting' && was!=='connecting') S.connAt=Date.now();
   if(st==='on'){ readStats(); confirmLive(); }
   else if(st==='off'||st==='error'){ S.since=0; S.live=null; }
+  if(st==='error'&&was!=='error') setTimeout(function(){ autoSub('error'); },300);
   loadServers(); renderAll();
 }
 function syncState(){
@@ -370,30 +379,37 @@ function nodeRow(n, inGroup){
     +(inGroup?'':flagImg(n.cc))+'<div class="t"><b>'+esc(title)+'</b>'+(sub?'<span>'+esc(sub)+'</span>':'')+'</div>'
     +(isLive?'<span class="live">На связи</span>':'')+bars(n.ping)+'</button>';
 }
+/* ice_v141: страна — одна строка; внутри неё лучший узел (меньше задержка, доступен) выбирается сам */
+function bestOf(g){
+  var ok=g.nodes.filter(function(n){return n.available;}); if(!ok.length) ok=g.nodes;
+  var pinged=ok.filter(function(n){return n.ping>0;}).sort(function(a,b){return a.ping-b.ping;});
+  return pinged[0]||ok[0];
+}
+function countryRow(g){
+  var on=S.state==='on'||S.switching, b=bestOf(g);
+  var sel=!S.autoOn&&g.nodes.some(function(n){return n.selected;});
+  var hasLive=on&&g.nodes.some(function(n){return n.guid===S.live;});
+  var cur=hasLive?byGuid(S.live):(sel?g.nodes.filter(function(n){return n.selected;})[0]:b);
+  var sub=g.nodes.length>1?('Лучший из '+g.nodes.length+(cur&&cur.ping>0?' · '+msText(cur.ping):'')):detail(g.nodes[0]);
+  if(!g.nodes.some(function(n){return n.available;})) sub='Сейчас занят'+(sub?' · '+sub:'');
+  return '<button type="button" class="row'+(sel?' sel':'')+(b&&b.available?'':' off')+'" data-pick="'+esc(b?b.guid:'')+'" role="radio" aria-checked="'+(sel?'true':'false')+'">'
+    +flagImg(g.cc)+'<div class="t"><b>'+esc(g.country)+'</b>'+(sub?'<span>'+esc(sub)+'</span>':'')+'</div>'
+    +(hasLive?'<span class="live">На связи</span>':'')+(cur?bars(cur.ping):'')+'</button>';
+}
 function renderServers(){
   var el=$('s-servers'), h='';
-  h+='<div class="head"><h1>Серверы</h1><button type="button" class="chk" data-a="ping"'+(S.pingBusy?' disabled':'')+'>'+(S.pingBusy?'Замеряю…':'Проверить')+'</button></div>';
+  h+='<div class="head"><h1>Серверы</h1>'+(S.pingBusy?'<span class="pinging">Замеряю скорость…</span>':'')+'</div>';
   if(!S.nodes.length){
     h+='<div class="card" style="padding:1rem var(--gut)"><b>Список серверов пуст</b><p class="sub" style="margin:.4rem 0 .8rem">Серверы появятся после получения ключа. Если ключ уже есть — обновите подписку.</p><div class="acts"><button class="btn small" type="button" data-a="redeem">Ввести ключ или код</button><button class="btn small ghost" type="button" data-a="refreshSub">Обновить подписку</button></div></div>';
     el.innerHTML=h; return;
   }
   var live=liveNode(), on=S.state==='on'||S.switching;
   if(S.auto){
-    var asub=S.autoOn ? (on&&live?'Сейчас через '+(live.title||live.country):'Самый быстрый узел из '+S.nodes.length) : 'Выключен — выбран сервер вручную';
+    var asub=S.autoOn ? (on&&live?'Сейчас через '+(live.country||live.title):'Самая быстрая страна и сервер') : 'Нажмите, чтобы выбирать автоматически';
     h+='<div class="card auto"><button type="button" class="row'+(S.autoOn?' sel':'')+'" data-pick="auto" role="radio" aria-checked="'+(S.autoOn?'true':'false')+'"><span class="ico24"><svg><use href="#i-bolt"/></svg></span><div class="t"><b>Автовыбор</b><span>'+esc(asub)+'</span></div></button></div>';
   }
   h+='<div class="card" role="radiogroup" aria-label="Выбор сервера">';
-  groupNodes().forEach(function(g){
-    if(g.nodes.length===1){ h+=nodeRow(g.nodes[0],false); return; }
-    var open=!!S.open[g.key];
-    var hasLive=on&&g.nodes.some(function(n){return n.guid===S.live;});
-    var shown=null;                                   // индикатор у свёрнутой страны — только если понятно, о каком узле речь
-    if(hasLive) shown=byGuid(S.live); else if(!S.autoOn) shown=g.nodes.filter(function(n){return n.selected;})[0]||null;
-    h+='<div class="grp'+(open?' open':'')+'"><button type="button" class="row" data-grp="'+esc(g.key)+'" aria-expanded="'+(open?'true':'false')+'">'+flagImg(g.cc)
-      +'<div class="t"><b>'+esc(g.country)+'</b><span>'+g.nodes.length+' '+plural(g.nodes.length,'сервер','сервера','серверов')+'</span></div>'
-      +((!open&&hasLive)?'<span class="live">На связи</span>':'')+((!open&&shown)?bars(shown.ping):'')
-      +'<svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></button><div class="nodes">'+g.nodes.map(function(n){return nodeRow(n,true);}).join('')+'</div></div>';
-  });
+  groupNodes().forEach(function(g){ h+=countryRow(g); });
   h+='</div>';
   if(S.nodes.length===1) h+='<p class="note">В вашей подписке один сервер — он выбран и используется для всех подключений. Автовыбор включится, когда появятся другие серверы.</p><div class="acts" style="margin-top:.75rem"><button class="btn small ghost" type="button" data-a="cab-plans">Тарифы и серверы</button></div>';
   el.innerHTML=h;
@@ -403,6 +419,7 @@ function pick(guid){
   if(guid==='auto'){ if(S.autoOn){ go('home'); return; } }
   else { var nd=byGuid(guid);
     if(nd&&!S.autoOn&&nd.selected){ go('home'); return; }
+    if(nd&&!S.autoOn&&S.sel&&S.sel.cc&&S.sel.cc===nd.cc&&S.sel.available){ go('home'); return; }
     if(nd&&!nd.available){ toast('Этот сервер сейчас перегружен — выберите другой или Автовыбор'); return; } }
   nat('select',guid);
   var was=S.state; loadServers();
@@ -448,15 +465,14 @@ function renderSettings(){
   } else if(S.sub==='sub'){
     h=subHead('Подписка')+'<div class="card">'
      +row('acct',me.name||'Срок и устройства',st,CH)
-     +row('copykey','Ключ','Скопировать ключ подписки',CH)
-     +row('key','Ключ и устройства','Подключить другое устройство, отключить старое',CH)
+     +row('key','Ключ и устройства','Скопировать ключ, подключить другое устройство, отключить старое',CH)
      +row('plans','Тарифы и оплата','Продлить или сменить тариф',CH)
      +row('redeem','Ввести ключ или код','Активация, промокод, новый ключ',CH)
-     +row('refreshSub','Обновить подписку','Заново получить список серверов',CH)
      +row('bonus','Бонусы и друзья','Промокоды, приглашения, подарки',CH)
-     +row('tg','Привязать Telegram','Один аккаунт в боте и в приложении',CH)
-     +row('tv','Подключить телевизор','Ввести код с экрана Siberia Connect TV',CH)
+     +(S.tgLinked===true?'':row('tg','Привязать Telegram','Один аккаунт в боте и в приложении',CH))
      +row('logout','Выйти из аккаунта','Ключ и серверы будут удалены с этого телефона',CH,'danger')+'</div>';
+  } else if(S.sub==='key'){
+    h=subHead('Ключ и устройства')+keyHtml();
   } else if(S.sub==='support'){
     h=subHead('Поддержка')+'<div class="card">'
      +row('support','Написать в поддержку','Ответим в приложении',CH)
@@ -468,7 +484,9 @@ function renderSettings(){
      +row('boot','Автозапуск','Включать VPN после перезагрузки телефона',sw(!!nat('autoStart')))
      +row('always','Постоянный VPN Android','Системная настройка: держать VPN всегда включённым',CH)
      +row('adv','DNS, сетевой стек, журналы','Расширенные параметры подключения и журнал для поддержки',CH)
-     +row('vpnset','Системные настройки VPN','Открыть настройки Android → VPN',CH)+'</div>'
+     +row('vpnset','Системные настройки VPN','Открыть настройки Android → VPN',CH)
+     +row('tv','Подключить телевизор','Ввести код с экрана Siberia Connect TV',CH)
+     +row('refreshSub','Обновить подписку','Обычно не нужно — обновляется сама',CH)+'</div>'
      +'<div class="ver">'+(b.ice?'Тестовая сборка · ':'')+'версия '+esc(b.version||nat('version')||'—')+(b.code?' ('+esc(b.code)+')':'')+(b.sha?' · коммит '+esc(b.sha):'')+(b.pkg?'<br>'+esc(b.pkg):'')+'</div>';
   } else {
     var smart=i.mode==='smart'&&i.rules!==false;
@@ -483,6 +501,41 @@ function renderSettings(){
   }
   el.innerHTML=h;
   el.querySelectorAll('.sw[data-on]').forEach(function(x){ x.setAttribute('aria-checked',x.getAttribute('data-on')); });
+}
+/* ice_v141: ключ и устройства — в приложении, без перехода в кабинет */
+function apiPost(path, body, cb){
+  var tok=''; try{ tok=localStorage.getItem('sc_tok')||''; }catch(e){}
+  if(!tok){ cb({ok:false,error:'Войдите в аккаунт'}); return; }
+  var ctl=window.AbortController?new AbortController():null, tm=setTimeout(function(){ctl&&ctl.abort();},12000);
+  fetch('/app/api/'+path,{method:'POST',cache:'no-store',signal:ctl?ctl.signal:undefined,headers:{'X-App-Token':tok,'Content-Type':'application/json'},body:JSON.stringify(body||{})})
+    .then(function(r){return r.json();}).then(cb).catch(function(){ cb({ok:false,error:'Нет связи с сервером'}); }).then(function(){clearTimeout(tm);});
+}
+var KS={show:false,acc:null,busy:false,err:''};
+function loadAcc(){
+  KS.busy=true; KS.err='';
+  apiPost('v1/account',{did:nat('deviceId')||''},function(r){ KS.busy=false;
+    if(r&&r.ok!==false){ KS.acc=r; if(typeof r.tg_linked==='boolean') S.tgLinked=r.tg_linked; } else KS.err=(r&&r.error)||'Не удалось загрузить';
+    if(S.tab==='settings'&&(S.sub==='key'||S.sub==='sub')) renderSettings(); });
+}
+function maskKey(v){ v=String(v||''); return v.length<=18?(v||'—'):v.slice(0,8)+'••••••••'+v.slice(-6); }
+function keyHtml(){
+  var u=nat('subUrl')||'', a=KS.acc, d=(a&&a.devices)||{}, items=d.items||[], h='';
+  h+='<div class="card"><div class="kpad" style="padding-bottom:0"><b>Мастер-ключ</b><p class="note" style="margin:.2rem 0 .5rem">Один ключ для всех ваших устройств. Никому его не передавайте.</p></div>'
+    +'<div class="kbox">'+esc(KS.show?u:maskKey(u))+'</div>'
+    +'<div class="kpad" style="padding-top:.2rem"><div class="acts"><button type="button" class="btn small" data-a="kcopy">Скопировать</button><button type="button" class="btn small ghost" data-a="kshow">'+(KS.show?'Скрыть':'Показать')+'</button></div></div></div>';
+  h+='<h2>Устройства'+(d.limit?' · '+(d.used||0)+' из '+d.limit:'')+'</h2><div class="card">';
+  if(KS.busy&&!a) h+='<div class="kpad note">Загружаю…</div>';
+  else if(KS.err&&!a) h+='<div class="kpad note">'+esc(KS.err)+'</div>';
+  else if(!items.length) h+='<div class="kpad note">'+esc(d.error||'Устройств пока нет')+'</div>';
+  else items.forEach(function(x){
+    h+='<div class="dev"><div class="t"><b>'+esc(x.title)+(x.current?'<em>этот телефон</em>':'')+'</b>'+(x.sub?'<span>'+esc(x.sub)+'</span>':'')+'</div>'
+      +(x.current?'':'<button type="button" class="del" data-a="kdel" data-id="'+esc(x.id)+'"'+((d.del_left|0)>0?'':' disabled')+'>Отключить</button>')+'</div>';
+  });
+  h+='</div><p class="note">Отключённое устройство теряет доступ, место освобождается сразу. Устройства, которые не заходили больше недели, освобождают место сами.'
+    +(a&&d.del_left!=null?' Отключить сегодня можно ещё: '+(d.del_left|0)+'.':'')+'</p>';
+  h+='<h2>Другое устройство</h2><div class="card"><div class="kpad"><p class="note" style="margin:0">1. Установите Siberia Connect (Android, Windows) или Happ (iPhone, Mac).<br>2. Скопируйте ключ выше и вставьте его при входе.</p>'
+    +'<div class="acts"><button type="button" class="btn small ghost" data-a="kdl">Где скачать</button></div></div></div>';
+  return h;
 }
 function ask(){
   var tok=''; try{ tok=localStorage.getItem('sc_tok')||''; }catch(e){}
@@ -502,7 +555,7 @@ function onRow(k){
   switch(k){
     case 'back': S.sub=''; renderSettings(); window.scrollTo(0,0); break;
     case 'smart': S.sub='smart'; renderSettings(); window.scrollTo(0,0); break;
-    case 'sub': S.sub='sub'; renderSettings(); window.scrollTo(0,0); break;
+    case 'sub': S.sub='sub'; renderSettings(); window.scrollTo(0,0); if(S.tgLinked===undefined) loadAcc(); break;
     case 'supportPage': S.sub='support'; renderSettings(); window.scrollTo(0,0); break;
     case 'advPage': S.sub='adv'; renderSettings(); window.scrollTo(0,0); break;
     case 'smartToggle': setSplit(splitInfo().mode==='smart'?'all':'smart'); break;
@@ -517,7 +570,7 @@ function onRow(k){
     case 'plans': nat('openCabinet','plans'); break;
     case 'redeem': nat('redeemDialog'); break;
     case 'refreshSub': refreshSub(); break;
-    case 'key': nat('openCabinet','key'); break;
+    case 'key': S.sub='key'; KS.show=false; renderSettings(); window.scrollTo(0,0); loadAcc(); break;
     case 'bonus': nat('openCabinet','bonus'); break;
     case 'tg': nat('linkTelegram'); break;
     case 'tv': openTv(); break;
@@ -526,6 +579,15 @@ function onRow(k){
     case 'channel': nat('openExternal',(S.me&&S.me.channel)||'https://t.me/sibirconnect'); break;
     case 'terms': nat('openExternal','https://sibir-cloud-api.site/terms'); break;
   }
+}
+function autoSub(why){
+  var u=nat('subUrl'); if(!u) return;
+  var last=0; try{ last=+localStorage.getItem('sc_sub_at')||0; }catch(e){}
+  var gap=why==='error'?10*60000:6*3600000;
+  if(Date.now()-last<gap) return;
+  try{ localStorage.setItem('sc_sub_at',String(Date.now())); }catch(e){}
+  S.silentSub=true; setTimeout(function(){ S.silentSub=false; },60000);
+  nat('setSub',u);
 }
 function refreshSub(){
   var u=nat('subUrl');
@@ -584,7 +646,7 @@ window.scNative=function(ev){
     case 'pings': S.pingBusy=false; loadServers(); renderAll(); break;
     case 'incident': S.incident=ev.code||''; renderHome(); break;
     case 'account': S.acct=ev.state||''; renderAll(); break;
-    case 'sub': S.acct=''; loadServers(); renderAll(); toast(ev.ok?'Подписка обновлена: '+(ev.count||0)+' '+plural(ev.count||0,'сервер','сервера','серверов'):(ev.error||'Не удалось обновить подписку')); break;
+    case 'sub': S.acct=''; loadServers(); renderAll(); if(S.silentSub){ S.silentSub=false; break; } toast(ev.ok?'Подписка обновлена: '+(ev.count||0)+' '+plural(ev.count||0,'сервер','сервера','серверов'):(ev.error||'Не удалось обновить подписку')); break;
     case 'apps': if(appsState){ appsState.loading=false; if(ev.error) appsState.error=ev.error; else { appsState.on=!!ev.on; appsState.list=ev.list||[]; } renderApps(); } break;
   }
 };
@@ -605,6 +667,13 @@ document.addEventListener('click',function(e){
   var a=t.getAttribute('data-a');
   switch(a){
     case 'ping': doPing(); break;
+    case 'kcopy': var ku=nat('subUrl'); if(ku){ nat('copyText',ku); toast('Ключ скопирован'); } else toast('Ключа нет — введите ключ или код'); break;
+    case 'kshow': KS.show=!KS.show; renderSettings(); break;
+    case 'kdl': nat('openExternal','https://sibir-cloud-api.site/#download'); break;
+    case 'kdel': if(!t.hasAttribute('data-sure')){ t.setAttribute('data-sure','1'); t.textContent='Точно?'; setTimeout(function(){ if(t.isConnected&&t.hasAttribute('data-sure')){ t.removeAttribute('data-sure'); t.textContent='Отключить'; } },4000); break; }
+      t.disabled=true; t.textContent='…';
+      apiPost('v1/devdel',{id:t.getAttribute('data-id'),did:nat('deviceId')||''},function(r){ if(r&&r.devices) KS.acc=r; toast(r&&r.ok?'Устройство отключено':((r&&r.error)||'Не получилось')); renderSettings(); });
+      break;
     case 'redeem': nat('redeemDialog'); break;
     case 'refreshSub': refreshSub(); break;
     case 'close': closeSheet(); break;
@@ -650,6 +719,7 @@ window.__ice={level:level,bars:bars,S:S};   // для проверок на ст
   var v=nat('vpnState'); if(v===undefined){ var r=nat('isRunning'); v=r?'on':'off'; }
   S.state=v||'off'; if(S.state==='on'){ readStats(); confirmLive(); }
   renderAll(); nat('pingAll'); S.pingAt=Date.now(); setTimeout(syncState,900);
+  if(S.state==='off') setTimeout(function(){ if(S.state==='off') autoSub('start'); },2500);
 })();
 })();
 </script>
